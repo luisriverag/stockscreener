@@ -64,6 +64,8 @@ def index():
     min_pe_spread_pos = request.args.get("min_pe_spread_pos", type=float)
     min_pe_spread_neg = request.args.get("min_pe_spread_neg", type=float)
     search = request.args.get("search", "").strip()
+    sort_by = request.args.get("sort_by", "ticker")
+    order = request.args.get("order", "asc")
 
     companies = []
     all_companies = Company.query.all()
@@ -126,6 +128,37 @@ def index():
                     }
                 )
 
+    # Sort companies
+    if sort_by == "pe_ratio":
+        companies.sort(
+            key=lambda x: (x["pe_ratio"] is None, x["pe_ratio"] or 0),
+            reverse=(order == "desc"),
+        )
+    elif sort_by == "pe_calc":
+        companies.sort(
+            key=lambda x: (x["pe_calc"] is None, x["pe_calc"] or 0),
+            reverse=(order == "desc"),
+        )
+    elif sort_by == "pe_spread":
+        companies.sort(
+            key=lambda x: (x["pe_spread"] is None, x["pe_spread"] or 0),
+            reverse=(order == "desc"),
+        )
+    elif sort_by == "revenue_growth":
+        companies.sort(
+            key=lambda x: (x["revenue_growth"] is None, x["revenue_growth"] or 0),
+            reverse=(order == "desc"),
+        )
+    elif sort_by == "daily_change":
+        companies.sort(
+            key=lambda x: (x["daily_change"] is None, x["daily_change"] or 0),
+            reverse=(order == "desc"),
+        )
+    elif sort_by == "ticker":
+        companies.sort(key=lambda x: x["ticker"] or "", reverse=(order == "desc"))
+    elif sort_by == "name":
+        companies.sort(key=lambda x: x["name"] or "", reverse=(order == "desc"))
+
     return render_template(
         "index.html",
         companies=companies,
@@ -136,6 +169,8 @@ def index():
         min_pe_spread_pos=min_pe_spread_pos,
         min_pe_spread_neg=min_pe_spread_neg,
         search=search,
+        sort_by=sort_by,
+        order=order,
     )
 
 
@@ -617,7 +652,7 @@ def all_companies():
 @app.route("/export/csv")
 def export_csv():
     search = request.args.get("search", "").strip()
-    sort_by = request.args.get("sort", "ticker")
+    sort_by = request.args.get("sort_by", "ticker")
     order = request.args.get("order", "asc")
 
     max_pe = request.args.get("max_pe", 25, type=float)
@@ -722,6 +757,32 @@ def export_csv():
                     "calc_pe": calc_pe,
                     "pe_spread": pe_spread,
                 }
+            )
+
+    # Sort companies (for filtered results)
+    if is_filtered:
+        if sort_by == "pe_ratio":
+            companies.sort(
+                key=lambda x: (x["calc_pe"] is None, x["calc_pe"] or 0),
+                reverse=(order == "desc"),
+            )
+        elif sort_by == "pe_calc":
+            companies.sort(
+                key=lambda x: (x["calc_pe"] is None, x["calc_pe"] or 0),
+                reverse=(order == "desc"),
+            )
+        elif sort_by == "pe_spread":
+            companies.sort(
+                key=lambda x: (x["pe_spread"] is None, x["pe_spread"] or 0),
+                reverse=(order == "desc"),
+            )
+        elif sort_by == "ticker":
+            companies.sort(
+                key=lambda x: x["company"].ticker or "", reverse=(order == "desc")
+            )
+        elif sort_by == "name":
+            companies.sort(
+                key=lambda x: x["company"].name or "", reverse=(order == "desc")
             )
 
     output = io.StringIO()

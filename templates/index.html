@@ -115,6 +115,20 @@
         .ticker-link:hover {
             text-decoration: underline;
         }
+        
+        .sort-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        
+        .sort-link:hover {
+            color: var(--accent);
+        }
+        
+        .sort-link.active {
+            color: var(--accent);
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -179,7 +193,7 @@
                 
                 {% if companies %}
                 <div class="mt-2">
-                    <a href="/export/csv?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}" class="btn btn-sm btn-outline-info">
+                    <a href="/export/csv?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by={{ sort_by }}&order={{ order }}" class="btn btn-sm btn-outline-info">
                         📥 Export Filtered Results ({{ companies|length }})
                     </a>
                 </div>
@@ -199,17 +213,46 @@
                 <h5 class="card-title mb-3">Filtered Companies</h5>
                 
                 {% if companies %}
+                {% set new_order = 'desc' if order == 'asc' else 'asc' %}
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Ticker</th>
-                                <th>Name</th>
-                                <th>P/E (Yahoo)</th>
-                                <th>P/E (Calc)</th>
-                                <th>P/E Spread</th>
-                                <th>Revenue Growth</th>
-                                <th>Daily Change</th>
+                                <th>
+                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=ticker&order={{ new_order }}" class="sort-link {% if sort_by == 'ticker' %}active{% endif %}">
+                                        Ticker {% if sort_by == 'ticker' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                                    </a>
+                                </th>
+                                <th>
+                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=name&order={{ new_order }}" class="sort-link {% if sort_by == 'name' %}active{% endif %}">
+                                        Name {% if sort_by == 'name' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                                    </a>
+                                </th>
+                                <th>
+                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=pe_ratio&order={{ new_order }}" class="sort-link {% if sort_by == 'pe_ratio' %}active{% endif %}">
+                                        P/E (Yahoo) {% if sort_by == 'pe_ratio' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                                    </a>
+                                </th>
+                                <th>
+                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=pe_calc&order={{ new_order }}" class="sort-link {% if sort_by == 'pe_calc' %}active{% endif %}">
+                                        P/E (Calc) {% if sort_by == 'pe_calc' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                                    </a>
+                                </th>
+                                <th>
+                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=pe_spread&order={{ new_order }}" class="sort-link {% if sort_by == 'pe_spread' %}active{% endif %}">
+                                        P/E Spread {% if sort_by == 'pe_spread' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                                    </a>
+                                </th>
+                                <th>
+                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=revenue_growth&order={{ new_order }}" class="sort-link {% if sort_by == 'revenue_growth' %}active{% endif %}">
+                                        Revenue Growth {% if sort_by == 'revenue_growth' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                                    </a>
+                                </th>
+                                <th>
+                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=daily_change&order={{ new_order }}" class="sort-link {% if sort_by == 'daily_change' %}active{% endif %}">
+                                        Daily Change {% if sort_by == 'daily_change' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                                    </a>
+                                </th>
                                 <th>Links</th>
                                 <th>Action</th>
                             </tr>

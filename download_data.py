@@ -1080,7 +1080,7 @@ def download_company_data(ticker, session):
                     year = date.year
                     quarter = (date.month - 1) // 3 + 1
 
-                    # Try to get CAPEX from cashflow first
+                    # Try to get CAPEX from cashflow
                     capex = None
                     try:
                         cashflow = ticker_obj.cashflow
@@ -1089,12 +1089,26 @@ def download_company_data(ticker, session):
                             and not cashflow.empty
                             and "Capital Expenditure" in cashflow.index
                         ):
+                            # Try to match by quarter first
                             for cf_col in cashflow.columns:
                                 cf_date = cf_col
-                                if cf_date.year == year or cf_date.year == year - 1:
+                                cf_quarter = (cf_date.month - 1) // 3 + 1
+                                if cf_date.year == year and cf_quarter == quarter:
                                     capex = cashflow.loc["Capital Expenditure", cf_col]
                                     if pd.notna(capex):
                                         break
+                            # Fallback: try same year (annual cashflow)
+                            if capex is None or pd.isna(capex):
+                                for cf_col in cashflow.columns:
+                                    cf_date = cf_col
+                                    if cf_date.year == year:
+                                        capex = cashflow.loc[
+                                            "Capital Expenditure", cf_col
+                                        ]
+                                        if pd.notna(capex):
+                                            # Annual CAPEX - estimate quarterly as 1/4
+                                            capex = capex / 4
+                                            break
                     except:
                         pass
 
