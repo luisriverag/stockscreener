@@ -912,35 +912,8 @@ The application uses the `yfinance` Python library to fetch data from Yahoo Fina
 
 ---
 
-## Future Enhancements
-
-Potential improvements for future development:
-
-1. **Data Updates:**
-   - Background job to update data periodically
-   - Incremental updates (only new data)
-
-2. **Additional Metrics:**
-   - EBITDA, Free Cash Flow
-   - Dividend history
-   - Analyst ratings
-
-3. **User Features:**
-   - Save filter presets
-   - Export to CSV/Excel
-   - Email alerts for filter matches
-
-4. **Performance:**
-   - Redis caching
-   - Database connection pooling
-   - Pagination for large result sets
-
-5. **Visualization:**
-   - More chart types
-   - Comparison overlays
-   - Technical indicators
-
 ---
 
 *Document Version: 1.0*
 *Last Updated: February 2026*
+*See [ROADMAP.md](./ROADMAP.md) for future enhancements*

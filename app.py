@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, jsonify, request
+import csv
+import io
+from flask import Flask, render_template, jsonify, request, make_response
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import db, Company, FinancialReport, StockPrice
@@ -61,6 +63,7 @@ def index():
     min_pe_spread_abs = request.args.get("min_pe_spread_abs", type=float)
     min_pe_spread_pos = request.args.get("min_pe_spread_pos", type=float)
     min_pe_spread_neg = request.args.get("min_pe_spread_neg", type=float)
+    search = request.args.get("search", "").strip()
 
     companies = []
     all_companies = Company.query.all()
@@ -76,6 +79,20 @@ def index():
         if pe and pe < max_pe:
             growth = company.revenue_growth
             if growth and growth > min_growth:
+                if search:
+                    search_match = False
+                    search_lower = search.lower()
+                    if company.ticker and search_lower in company.ticker.lower():
+                        search_match = True
+                    if company.name and search_lower in company.name.lower():
+                        search_match = True
+                    if company.industry and search_lower in company.industry.lower():
+                        search_match = True
+                    if company.sector and search_lower in company.sector.lower():
+                        search_match = True
+                    if not search_match:
+                        continue
+
                 pe_spread = None
                 if calc_pe_val and company.pe_ratio:
                     pe_spread = calc_pe_val - company.pe_ratio
@@ -118,6 +135,7 @@ def index():
         min_pe_spread_abs=min_pe_spread_abs,
         min_pe_spread_pos=min_pe_spread_pos,
         min_pe_spread_neg=min_pe_spread_neg,
+        search=search,
     )
 
 
@@ -539,9 +557,32 @@ def risks(ticker):
 
 @app.route("/all")
 def all_companies():
-    companies = []
-    all_companies = Company.query.order_by(Company.ticker).all()
+    page = request.args.get("page", 1, type=int)
+    per_page = 50
+    search = request.args.get("search", "").strip()
+    sort_by = request.args.get("sort", "ticker")
+    order = request.args.get("order", "asc")
 
+    query = Company.query
+
+    if search:
+        query = query.filter(
+            (Company.ticker.ilike(f"%{search}%"))
+            | (Company.name.ilike(f"%{search}%"))
+            | (Company.industry.ilike(f"%{search}%"))
+            | (Company.sector.ilike(f"%{search}%"))
+        )
+
+    sort_column = getattr(Company, sort_by, Company.ticker)
+    if order == "desc":
+        query = query.order_by(sort_column.desc())
+    else:
+        query = query.order_by(sort_column.asc())
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    all_companies = pagination.items
+
+    companies = []
     for company in all_companies:
         calc_pe = calculate_pe(company)
         pe_spread = None
@@ -563,7 +604,167 @@ def all_companies():
             }
         )
 
-    return render_template("all.html", companies=companies)
+    return render_template(
+        "all.html",
+        companies=companies,
+        pagination=pagination,
+        search=search,
+        sort_by=sort_by,
+        order=order,
+    )
+
+
+@app.route("/export/csv")
+def export_csv():
+    search = request.args.get("search", "").strip()
+    sort_by = request.args.get("sort", "ticker")
+    order = request.args.get("order", "asc")
+
+    max_pe = request.args.get("max_pe", 25, type=float)
+    min_growth = request.args.get("min_growth", 10, type=float)
+    use_calc_pe = request.args.get("use_calc_pe", "false") == "true"
+    min_pe_spread_abs = request.args.get("min_pe_spread_abs", type=float)
+    min_pe_spread_pos = request.args.get("min_pe_spread_pos", type=float)
+    min_pe_spread_neg = request.args.get("min_pe_spread_neg", type=float)
+
+    is_filtered = any(
+        [
+            request.args.get("max_pe"),
+            request.args.get("min_growth"),
+            request.args.get("use_calc_pe"),
+            request.args.get("min_pe_spread_abs"),
+            request.args.get("min_pe_spread_pos"),
+            request.args.get("min_pe_spread_neg"),
+        ]
+    )
+
+    if is_filtered:
+        all_companies = Company.query.all()
+        companies = []
+
+        for company in all_companies:
+            calc_pe_val = calculate_pe(company)
+
+            if use_calc_pe:
+                pe = calc_pe_val
+            else:
+                pe = company.pe_ratio
+
+            if pe and pe < max_pe:
+                growth = company.revenue_growth
+                if growth and growth > min_growth:
+                    if search:
+                        search_match = False
+                        search_lower = search.lower()
+                        if company.ticker and search_lower in company.ticker.lower():
+                            search_match = True
+                        if company.name and search_lower in company.name.lower():
+                            search_match = True
+                        if (
+                            company.industry
+                            and search_lower in company.industry.lower()
+                        ):
+                            search_match = True
+                        if company.sector and search_lower in company.sector.lower():
+                            search_match = True
+                        if not search_match:
+                            continue
+
+                    pe_spread = None
+                    if calc_pe_val and company.pe_ratio:
+                        pe_spread = calc_pe_val - company.pe_ratio
+
+                    if pe_spread is not None:
+                        if min_pe_spread_abs is not None:
+                            if abs(pe_spread) < min_pe_spread_abs:
+                                continue
+                        if min_pe_spread_pos is not None:
+                            if pe_spread < min_pe_spread_pos:
+                                continue
+                        if min_pe_spread_neg is not None:
+                            if pe_spread > -min_pe_spread_neg:
+                                continue
+
+                    companies.append(
+                        {
+                            "company": company,
+                            "calc_pe": calc_pe_val,
+                            "pe_spread": pe_spread,
+                        }
+                    )
+    else:
+        query = Company.query
+
+        if search:
+            query = query.filter(
+                (Company.ticker.ilike(f"%{search}%"))
+                | (Company.name.ilike(f"%{search}%"))
+                | (Company.industry.ilike(f"%{search}%"))
+                | (Company.sector.ilike(f"%{search}%"))
+            )
+
+        sort_column = getattr(Company, sort_by, Company.ticker)
+        if order == "desc":
+            query = query.order_by(sort_column.desc())
+        else:
+            query = query.order_by(sort_column.asc())
+
+        companies_list = query.all()
+        companies = []
+        for company in companies_list:
+            calc_pe = calculate_pe(company)
+            pe_spread = None
+            if calc_pe and company.pe_ratio:
+                pe_spread = calc_pe - company.pe_ratio
+            companies.append(
+                {
+                    "company": company,
+                    "calc_pe": calc_pe,
+                    "pe_spread": pe_spread,
+                }
+            )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(
+        [
+            "Ticker",
+            "Name",
+            "Sector",
+            "Industry",
+            "P/E (Yahoo)",
+            "P/E (Calculated)",
+            "P/E Spread",
+            "Market Cap",
+            "Daily Change %",
+        ]
+    )
+
+    for item in companies:
+        company = item["company"]
+        calc_pe = item["calc_pe"]
+        pe_spread = item["pe_spread"]
+
+        writer.writerow(
+            [
+                company.ticker,
+                company.name or "",
+                company.sector or "",
+                company.industry or "",
+                company.pe_ratio or "",
+                calc_pe or "",
+                pe_spread or "",
+                company.market_cap or "",
+                company.daily_price_change_pct or "",
+            ]
+        )
+
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers["Content-Disposition"] = "attachment; filename=companies.csv"
+    response.headers["Content-Type"] = "text/csv"
+    return response
 
 
 if __name__ == "__main__":

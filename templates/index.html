@@ -134,6 +134,11 @@
                 
                 <form class="filter-form" method="GET" action="/">
                     <div class="form-group">
+                        <label for="search">Search</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               value="{{ search or '' }}" placeholder="Ticker, name, sector...">
+                    </div>
+                    <div class="form-group">
                         <label for="max_pe">Max P/E Ratio</label>
                         <input type="number" class="form-control" id="max_pe" name="max_pe" 
                                value="{{ max_pe }}" min="0" max="100" step="1">
@@ -167,7 +172,18 @@
                         </div>
                     </div>
                     <button type="submit" class="btn btn-accent">Apply Filters</button>
+                    {% if search %}
+                    <a href="/" class="btn btn-outline-secondary">Clear Search</a>
+                    {% endif %}
                 </form>
+                
+                {% if companies %}
+                <div class="mt-2">
+                    <a href="/export/csv?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}" class="btn btn-sm btn-outline-info">
+                        📥 Export Filtered Results ({{ companies|length }})
+                    </a>
+                </div>
+                {% endif %}
                 
                 <p class="text-secondary mt-3 mb-0">
                     Showing companies with {% if use_calc_pe %}Calculated P/E{% else %}Yahoo P/E{% endif %} &lt; {{ max_pe }} and quarterly revenue growth &gt; {{ min_growth }}%
