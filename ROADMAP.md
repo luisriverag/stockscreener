@@ -49,10 +49,10 @@ This document outlines planned and proposed enhancements for the Stock Screener 
   - Name and manage presets
   - Quick access from homepage
 
-- [ ] Export functionality
-  - Export filtered results to CSV
-  - Export to Excel with formatting
-  - Export charts as PNG/SVG
+- [x] Export functionality
+  - [x] Export filtered results to CSV
+  - [ ] Export to Excel with formatting
+  - [ ] Export charts as PNG/SVG
 
 - [ ] Email alerts
   - Set price alerts
@@ -61,8 +61,8 @@ This document outlines planned and proposed enhancements for the Stock Screener 
 
 ### Search & Navigation
 
-- [ ] Global search (ticker/name)
-- [ ] Sort by any column
+- [x] Global search (ticker/name)
+- [x] Sort by any column
 - [ ] Industry/sector filtering
 - [ ] Market cap range filter
 
@@ -164,9 +164,22 @@ Have an idea? Submit a feature request!
 
 *Add your suggestions here:*
 
-- [ ] _________________________
-- [ ] _________________________
-- [ ] _________________________
+- [ ] Watchlist/favorites functionality
+- [ ] Portfolio tracking
+- [ ] Price alerts
+- [ ] Sector performance dashboard
+- [ ] Customizable dashboard widgets
+- [ ] Dark/light theme toggle
+- [ ] Mobile app
+- [ ] Real-time price updates via WebSocket
+- [ ] Company comparison tool (side-by-side)
+- [ ] Technical analysis charts
+- [ ] Insider trading data
+- [ ] Institutional ownership data
+- [ ] Options chain data
+- [ ] SEC filings integration
+- [ ] Earnings calendar
+- [ ] Stock screener with more criteria
 
 ---
 
@@ -190,6 +203,14 @@ Have an idea? Submit a feature request!
 - [x] Dark theme UI
 - [x] Responsive design
 - [x] All companies listing
+
+### Version 1.1 (Recent Updates)
+
+- [x] Pagination for all companies page (50 per page)
+- [x] Search functionality (ticker, name, sector, industry)
+- [x] Sort by columns (ticker, sector, P/E, market cap)
+- [x] CSV export for filtered results
+- [x] CSV export for all companies
 
 ---
 
