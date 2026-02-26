@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ summary.ticker }} - {{ summary.name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --positive: #3fb950;
+            --negative: #f85149;
+        }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        
+        .navbar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        
+        .card-header {
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+        
+        .positive { color: var(--positive); }
+        .negative { color: var(--negative); }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        
+        .news-item {
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 0;
+        }
+        
+        .news-item:last-child {
+            border-bottom: none;
+        }
+        
+        .news-title {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .news-title:hover {
+            color: var(--accent);
+        }
+        
+        .news-meta {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .competitor-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .competitor-card a {
+            text-decoration: none;
+        }
+        
+        #financialChart, #priceChart, #combinedChart {
+            height: 350px;
+        }
+        
+        .btn-accent {
+            background: var(--accent);
+            color: white;
+            border: none;
+        }
+        
+        .nav-tabs {
+            border-bottom-color: var(--border);
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--text-secondary);
+            border-color: var(--border) var(--border) transparent;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-color: var(--border) var(--border) var(--bg-card);
+        }
+        
+        .nav-tabs .nav-link:hover {
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">📊 Stock Analyzer</a>
+            <span class="navbar-text">
+                <a href="/" class="text-secondary text-decoration-none">← Back to List</a>
+            </span>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h2>
+                    <span class="text-accent">{{ summary.ticker }}</span>
+                    <small class="text-secondary">{{ summary.name }}</small>
+                </h2>
+                <p class="text-secondary mb-1">{{ summary.sector }} | {{ summary.industry }}</p>
+                <div>
+                    {% if summary.website_url %}
+                    <a href="{{ summary.website_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">🌐 Company Website</a>
+                    {% endif %}
+                    <a href="{{ summary.yahoo_url }}" target="_blank" class="btn btn-sm btn-outline-info">📈 Yahoo Finance</a>
+                </div>
+            </div>
+            <div class="col text-end">
+                <div class="stat-value">${{ "%.2f"|format(summary.price) }}</div>
+                <div class="stat-label">Current Price</div>
+                <div class="{% if summary.daily_change > 0 %}positive{% elif summary.daily_change < 0 %}negative{% endif %} mt-2">
+                    {% if summary.daily_change %}{{ "%+.2f%%"|format(summary.daily_change) }}{% else %}N/A{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="stat-value">{{ "%.2f"|format(summary.pe_ratio) if summary.pe_ratio else '-' }}</div>
+                <div class="stat-label">P/E (Yahoo)</div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-value {% if summary.pe_calc and summary.pe_calc < 25 %}positive{% endif %}">
+                    {{ "%.2f"|format(summary.pe_calc) if summary.pe_calc else '-' }}
+                </div>
+                <div class="stat-label">P/E (Calculated)</div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-value">${{ "%.2fT"|format(summary.market_cap) }}</div>
+                <div class="stat-label">Market Cap</div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-value">${{ "%.2fB"|format(summary.revenue) }}</div>
+                <div class="stat-label">Revenue (Q)</div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-value">${{ "%.2fB"|format(summary.net_income) }}</div>
+                <div class="stat-label">Net Income (Q)</div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-value {% if summary.revenue_growth > 10 %}positive{% endif %}">
+                    {{ "%.1f%%"|format(summary.revenue_growth) if summary.revenue_growth else '-' }}
+                </div>
+                <div class="stat-label">Revenue Growth</div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stat-value">${{ "%.2f"|format(summary.eps_ttm) if summary.eps_ttm else '-' }}</div>
+                <div class="stat-label">Net Income TTM ($B)</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="financials-tab" data-bs-toggle="tab" data-bs-target="#financials" type="button">
+                    📊 Financials
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="price-tab" data-bs-toggle="tab" data-bs-target="#price" type="button">
+                    📈 Stock Price
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="combined-tab" data-bs-toggle="tab" data-bs-target="#combined" type="button">
+                    📊📈 Combined
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="news-tab" data-bs-toggle="tab" data-bs-target="#news" type="button" onclick="loadNews('{{ summary.ticker }}')">
+                    📰 News
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="risks-tab" data-bs-toggle="tab" data-bs-target="#risks" type="button" onclick="loadRisks('{{ summary.ticker }}')">
+                    ⚠️ Risk Analysis
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="competitors-tab" data-bs-toggle="tab" data-bs-target="#competitors" type="button">
+                    🏢 Competitors
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <!-- Financials Tab -->
+            <div class="tab-pane fade show active" id="financials">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">Revenue, OPEX, CAPEX over Time</h6>
+                        <div id="financialChart"></div>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">Quarterly Financial Data</div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Period</th>
+                                        <th>Revenue</th>
+                                        <th>OPEX</th>
+                                        <th>CAPEX*</th>
+                                        <th>Net Income</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for report in reports %}
+                                    <tr>
+                                        <td>{{ report.period }}</td>
+                                        <td>${{ "%.2fB"|format(report.revenue) }}</td>
+                                        <td>${{ "%.2fB"|format(report.opex) }}</td>
+                                        <td>${{ "%.2fB"|format(report.capex|abs) if report.capex else '-' }}</td>
+                                        <td>${{ "%.2fB"|format(report.net_income) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            <small class="text-secondary">*CAPEX is capital expenditure (investment in assets). Negative values indicate cash outflow.</small>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Tab -->
+            <div class="tab-pane fade" id="price">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">Stock Price History (1 Year)</h6>
+                        <div id="priceChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Combined Chart Tab -->
+            <div class="tab-pane fade" id="combined">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">Financials + Stock Price (Dual Axis)</h6>
+                        <div id="combinedChart"></div>
+                    </div>
+                </div>
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <p class="text-secondary small">
+                            <strong>Left Axis:</strong> Revenue, OPEX, CAPEX in billions ($)<br>
+                            <strong>Right Axis:</strong> Stock price in dollars ($)
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- News Tab -->
+            <div class="tab-pane fade" id="news">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">Latest News</h6>
+                        <div id="newsContainer">
+                            <p class="text-secondary">Click on News tab to load latest articles...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risks Tab -->
+            <div class="tab-pane fade" id="risks">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">⚠️ Risk Analysis (from 10K/Financial Data)</h6>
+                        <div id="risksContainer">
+                            <p class="text-secondary">Click on Risk Analysis tab to load...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Competitors Tab -->
+            <div class="tab-pane fade" id="competitors">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">Competitors in {{ summary.industry }}</h6>
+                        {% if competitors %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Name</th>
+                                        <th>P/E (Yahoo)</th>
+                                        <th>P/E (Calc)</th>
+                                        <th>Revenue</th>
+                                        <th>vs {{ summary.ticker }}</th>
+                                        <th>OPEX</th>
+                                        <th>vs {{ summary.ticker }}</th>
+                                        <th>CAPEX</th>
+                                        <th>vs {{ summary.ticker }}</th>
+                                        <th>Net Income</th>
+                                        <th>vs {{ summary.ticker }}</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for comp in competitors %}
+                                    <tr>
+                                        <td><a href="/ticker/{{ comp.id }}" class="ticker-link"><strong>{{ comp.ticker }}</strong></a></td>
+                                        <td><small>{{ comp.name or '' }}</small></td>
+                                        <td>{{ "%.2f"|format(comp.pe_ratio) if comp.pe_ratio else '-' }}</td>
+                                        <td class="{% if comp.pe_calc and comp.pe_calc < 25 %}positive{% endif %}">{{ "%.2f"|format(comp.pe_calc) if comp.pe_calc else '-' }}</td>
+                                        <td>${{ "%.1fB"|format(comp.revenue) }}</td>
+                                        <td class="{% if comp.revenue_pct > 100 %}positive{% elif comp.revenue_pct < 100 %}negative{% endif %}">{{ "%.0f%%"|format(comp.revenue_pct) }}</td>
+                                        <td>${{ "%.1fB"|format(comp.opex) }}</td>
+                                        <td class="{% if comp.opex_pct > 100 %}positive{% elif comp.opex_pct < 100 %}negative{% endif %}">{{ "%.0f%%"|format(comp.opex_pct) }}</td>
+                                        <td>${{ "%.1fB"|format(comp.capex) if comp.capex else '-' }}</td>
+                                        <td class="{% if comp.capex_pct > 100 %}positive{% elif comp.capex_pct < 100 and comp.capex_pct > 0 %}negative{% endif %}">{{ "%.0f%%"|format(comp.capex_pct) if comp.capex_pct else '-' }}</td>
+                                        <td>${{ "%.1fB"|format(comp.net_income) }}</td>
+                                        <td class="{% if comp.net_income_pct > 100 %}positive{% elif comp.net_income_pct < 100 and comp.net_income_pct > 0 %}negative{% endif %}">{{ "%.0f%%"|format(comp.net_income_pct) }}</td>
+                                        <td><a href="{{ comp.yahoo_url }}" target="_blank" class="btn btn-sm btn-outline-info">→</a></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-secondary small mt-2">
+                            * "vs {{ summary.ticker }}" shows competitor's metric as percentage of {{ summary.ticker }}'s metric.<br>
+                            * Green = higher than {{ summary.ticker }}, Red = lower than {{ summary.ticker }}
+                        </p>
+                        {% else %}
+                        <p class="text-secondary">No competitors found in the same industry.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const reportsData = {{ reports | tojson }};
+        const pricesData = {{ prices | tojson }};
+        
+        // Financial Chart
+        if (reportsData.length > 0) {
+            const periods = reportsData.map(r => r.period);
+            const revenues = reportsData.map(r => r.revenue);
+            const opex = reportsData.map(r => r.opex);
+            const capex = reportsData.map(r => r.capex ? Math.abs(r.capex) : 0);
+            
+            Plotly.newPlot('financialChart', [
+                {
+                    x: periods,
+                    y: revenues,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Revenue ($B)',
+                    line: { color: '#58a6ff', width: 2 }
+                },
+                {
+                    x: periods,
+                    y: opex,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'OPEX ($B)',
+                    line: { color: '#f85149', width: 2 }
+                },
+                {
+                    x: periods,
+                    y: capex,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'CAPEX ($B)',
+                    line: { color: '#f0883e', width: 2 }
+                }
+            ], {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#e6edf3' },
+                xaxis: { gridcolor: '#30363d' },
+                yaxis: { title: 'Amount ($B)', gridcolor: '#30363d' },
+                margin: { t: 20, r: 20, b: 40, l: 60 }
+            }, { responsive: true });
+        }
+        
+        // Price Chart
+        if (pricesData.length > 0) {
+            const dates = pricesData.map(p => p.date);
+            const closes = pricesData.map(p => p.close);
+            
+            Plotly.newPlot('priceChart', [
+                {
+                    x: dates,
+                    y: closes,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Stock Price ($)',
+                    line: { color: '#3fb950', width: 2 },
+                    fill: 'tozeroy',
+                    fillcolor: 'rgba(63, 185, 80, 0.1)'
+                }
+            ], {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#e6edf3' },
+                xaxis: { title: 'Date', gridcolor: '#30363d' },
+                yaxis: { title: 'Price ($)', gridcolor: '#30363d' },
+                margin: { t: 20, r: 20, b: 40, l: 60 }
+            }, { responsive: true });
+        }
+        
+        // Combined Chart (Financials + Price on dual axis)
+        if (reportsData.length > 0 && pricesData.length > 0) {
+            const periods = reportsData.map(r => r.period);
+            const revenues = reportsData.map(r => r.revenue);
+            const opex = reportsData.map(r => r.opex);
+            const capex = reportsData.map(r => r.capex ? Math.abs(r.capex) : 0);
+            
+            const priceDates = pricesData.map(p => p.date);
+            const priceCloses = pricesData.map(p => p.close);
+            
+            Plotly.newPlot('combinedChart', [
+                {
+                    x: periods,
+                    y: revenues,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Revenue ($B)',
+                    line: { color: '#58a6ff', width: 2 }
+                },
+                {
+                    x: periods,
+                    y: opex,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'OPEX ($B)',
+                    line: { color: '#f85149', width: 2 }
+                },
+                {
+                    x: periods,
+                    y: capex,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'CAPEX ($B)',
+                    line: { color: '#f0883e', width: 2 }
+                },
+                {
+                    x: priceDates,
+                    y: priceCloses,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Stock Price ($)',
+                    yaxis: 'y2',
+                    line: { color: '#3fb950', width: 2, dash: 'dot' }
+                }
+            ], {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#e6edf3' },
+                xaxis: { title: 'Period', gridcolor: '#30363d' },
+                yaxis: { 
+                    title: 'Financial Metrics ($B)', 
+                    gridcolor: '#30363d',
+                    side: 'left'
+                },
+                yaxis2: {
+                    title: 'Stock Price ($)',
+                    overlaying: 'y',
+                    side: 'right',
+                    gridcolor: '#30363d'
+                },
+                legend: {
+                    x: 0,
+                    y: 1.2,
+                    orientation: 'h'
+                },
+                margin: { t: 80, r: 60, b: 60, l: 60 }
+            }, { responsive: true });
+        }
+        
+        // Load News
+        async function loadNews(ticker) {
+            const container = document.getElementById('newsContainer');
+            container.innerHTML = '<p class="text-secondary">Loading news...</p>';
+            
+            try {
+                const response = await fetch(`/api/news/${ticker}`);
+                const data = await response.json();
+                
+                if (data.news && data.news.length > 0) {
+                    let html = '';
+                    data.news.forEach(item => {
+                        html += `
+                            <div class="news-item">
+                                <a href="${item.link}" target="_blank" class="news-title">${item.title}</a>
+                                <div class="news-meta">
+                                    ${item.publisher || 'Unknown'} 
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p class="text-secondary">No news available.</p>';
+                }
+            } catch (error) {
+                container.innerHTML = `<p class="text-danger">Error loading news: ${error.message}</p>`;
+            }
+        }
+        
+        // Load Risks
+        async function loadRisks(ticker) {
+            const container = document.getElementById('risksContainer');
+            container.innerHTML = '<p class="text-secondary">Loading risk data...</p>';
+            
+            try {
+                const response = await fetch(`/api/risks/${ticker}`);
+                const data = await response.json();
+                
+                if (data.risks && data.risks.length > 0) {
+                    let html = '<div class="table-responsive"><table class="table table-sm table-bordered">';
+                    html += '<thead><tr><th>Metric</th><th>Value</th><th>Risk Level</th><th>Description</th></tr></thead><tbody>';
+                    
+                    data.risks.forEach(item => {
+                        let riskBadge = '';
+                        if (item.risk === 'High') {
+                            riskBadge = '<span class="badge bg-danger">High</span>';
+                        } else if (item.risk === 'Medium') {
+                            riskBadge = '<span class="badge bg-warning text-dark">Medium</span>';
+                        } else if (item.risk === 'Low') {
+                            riskBadge = '<span class="badge bg-success">Low</span>';
+                        } else {
+                            riskBadge = '<span class="badge bg-secondary">N/A</span>';
+                        }
+                        
+                        html += `
+                            <tr>
+                                <td><strong>${item.metric}</strong></td>
+                                <td>${item.value}</td>
+                                <td>${riskBadge}</td>
+                                <td><small class="text-secondary">${item.description}</small></td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p class="text-secondary">No risk data available.</p>';
+                }
+            } catch (error) {
+                container.innerHTML = `<p class="text-danger">Error loading risks: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
