@@ -1,373 +1,491 @@
-# Stock Analyzer - Financial Analysis Web Application
+# Stock Screener - Financial Analysis Web Application
 
-## Overview
+A comprehensive Flask-based web application for analyzing publicly traded companies. Download financial data from Yahoo Finance, filter by P/E ratio and revenue growth, and explore interactive charts and detailed company analysis.
 
-A Flask-based web application that downloads financial data and stock prices for 700+ companies, filters them by various financial metrics, and displays interactive charts with detailed company analysis.
+![Stock Screener](https://img.shields.io/badge/Version-1.0-brightgreen) ![Python](https://img.shields.io/badge/Python-3.12-blue) ![Flask](https://img.shields.io/badge/Flask-3.1.x-red)
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Database Schema](#database-schema)
+- [API Endpoints](#api-endpoints)
+- [Financial Calculations](#financial-calculations)
+- [Frontend Features](#frontend-features)
+- [Understanding P/E Metrics](#understanding-p/e-metrics)
+- [Troubleshooting](#troubleshooting)
+- [Technology Stack](#technology-stack)
+- [License](#license)
+
+---
 
 ## Features
 
-### 1. Data Download
-- Downloads 10K reports (quarterly financial statements) for ~770 S&P companies and popular tickers
-- Downloads 2 years of daily stock price history
-- Stores data in SQLite database
+### Core Functionality
 
-### 2. Filtering (Web Configurable)
-- **P/E Ratio**: Maximum P/E threshold (default: 25)
-- **Revenue Growth**: Minimum quarterly revenue growth % (default: 10%)
-- **P/E Type Toggle**: Use Yahoo P/E or Calculated P/E
-- **P/E Spread**: Minimum spread between Calculated and Yahoo P/E
+- **Data Download**: Fetch financial data for 770+ companies from Yahoo Finance
+- **SQLite Storage**: Local database for fast querying and offline analysis
+- **Interactive Filtering**: Filter companies by P/E ratio, revenue growth, and P/E spread
+- **Dual P/E Calculations**: Compare Yahoo P/E with custom calculated P/E
+- **P/E Spread Analysis**: Identify anomalies between calculated and reported P/E ratios
 
-### 3. P/E Calculations
+### Data Visualization
 
-#### Yahoo P/E
-- Fetched directly from Yahoo Finance API (`info.get("trailingPE")`)
-- Trailing 12-month P/E based on reported earnings
+- **Financial Charts**: Revenue, OPEX, and CAPEX trends over time
+- **Price Charts**: 1-year stock price history
+- **Combined Charts**: Dual-axis charts correlating financials with stock price
+- **Competitor Comparison**: Side-by-side industry peer analysis
 
-#### Calculated P/E
+### Company Analysis
+
+- **Summary Statistics**: P/E, market cap, revenue, net income, growth
+- **Latest News**: Real-time news from Yahoo Finance
+- **Risk Analysis**: Key risk metrics with Low/Medium/High ratings
+- **Industry Peers**: Competitors in the same industry
+
+---
+
+## Quick Start
+
+```bash
+# 1. Clone and setup
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 2. Download data (first time only - takes ~30 minutes for 770+ companies)
+python download_data.py
+
+# 3. Run the web server
+python app.py
+
+# 4. Open in browser
+# http://localhost:5000
 ```
-Calculated P/E = Price / (TTM Net Income / Estimated Shares)
 
-Where:
-- Price = Latest closing price from database
-- TTM Net Income = Sum of last 4 quarters net income
-- Estimated Shares = Market Cap / Price (estimated from Yahoo data)
+---
+
+## Installation
+
+### Prerequisites
+
+- Python 3.8 or higher
+- pip package manager
+
+### Step-by-Step Setup
+
+```bash
+# Navigate to project directory
+cd /home/coder/Projects
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+pip install flask-sqlalchemy
+
+# Verify installation
+python -c "import flask; print(flask.__version__)"
 ```
 
-#### P/E Spread
-```
-Spread = Calculated P/E - Yahoo P/E
+### requirements.txt Contents
 
-Interpretation:
-- Positive spread: Calculated > Yahoo (potential overvaluation or accounting differences)
-- Negative spread: Calculated < Yahoo (potential undervaluation or one-time earnings boost)
+```
+flask>=3.0.0
+flask-sqlalchemy>=3.0.0
+sqlalchemy>=2.0.0
+yfinance>=0.2.0
+pandas>=2.0.0
+plotly>=5.0.0
 ```
 
-### 4. Web Interface
-- **Homepage**: Filtered companies table with all metrics
-- **Ticker Pages**: Detailed company analysis with charts
-- **All Companies**: Browse all 770+ companies
+---
+
+## Usage
+
+### Running the Application
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Run Flask app
+python app.py
+```
+
+The application will start at `http://localhost:5000`
+
+### Downloading Data
+
+```bash
+# Download data for all tickers
+python download_data.py
+```
+
+This script will:
+1. Fetch ~770 stock tickers (S&P 500 + popular stocks/ETFs)
+2. Download company info (name, sector, P/E, market cap)
+3. Download 2 years of daily stock prices
+4. Download quarterly financial reports
+5. Store everything in SQLite database
+
+### Filtering Companies
+
+Access the homepage with query parameters:
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| max_pe | Maximum P/E ratio | `?max_pe=20` |
+| min_growth | Minimum revenue growth % | `?min_growth=15` |
+| use_calc_pe | Use calculated P/E | `?use_calc_pe=true` |
+| min_pe_spread_abs | Minimum absolute spread | `?min_pe_spread_abs=30` |
+| min_pe_spread_pos | Minimum positive spread | `?min_pe_spread_pos=20` |
+| min_pe_spread_neg | Minimum negative spread | `?min_pe_spread_neg=20` |
+
+**Example URLs:**
+
+```
+# Default filters (P/E < 25, Growth > 10%)
+http://localhost:5000/
+
+# Stricter filters
+http://localhost:5000/?max_pe=20&min_growth=15
+
+# Use calculated P/E
+http://localhost:5000/?use_calc_pe=true&max_pe=25
+
+# Find P/E anomalies (large spread)
+http://localhost:5000/?min_pe_spread_abs=50
+```
+
+---
 
 ## Project Structure
 
 ```
 /home/coder/Projects/
-├── app.py                 # Flask web server with all routes and logic
-├── download_data.py       # Data download script (770+ tickers)
-├── models.py             # SQLAlchemy database models
-├── requirements.txt      # Python dependencies
-├── README.md            # This documentation
-├── SPEC.md              # Project specification
-├── stocks.db            # SQLite database (created on first run)
+├── app.py                  # Flask application - all routes and business logic
+├── download_data.py        # Data download script - fetches from Yahoo Finance
+├── models.py              # SQLAlchemy ORM models - database schema
+├── requirements.txt       # Python dependencies
+├── README.md              # This file
+├── SPEC.md                # Technical specification document
+├── stocks.db              # SQLite database (created at runtime)
+├── .gitignore             # Git ignore patterns
 ├── templates/
-│   ├── index.html       # Homepage with filters
-│   ├── ticker.html     # Individual company page
-│   └── all.html        # All companies list
-└── venv/               # Virtual environment
+│   ├── index.html        # Homepage - filter form and results table
+│   ├── ticker.html       # Company detail page - 6 tabs
+│   └── all.html          # All companies list page
+└── venv/                 # Python virtual environment
 ```
 
-## Installation
-
-```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-pip install flask-sqlalchemy
-```
-
-## Usage
-
-### 1. Download Data
-
-```bash
-source venv/bin/activate
-python download_data.py
-```
-
-This will:
-- Fetch 770+ ticker symbols (S&P 500 + popular stocks/ETFs)
-- For each company:
-  - Download company info (name, sector, P/E, market cap, website)
-  - Download 2 years of daily stock prices
-  - Download quarterly financial reports (revenue, opex, capex, net income)
-
-### 2. Run Web Server
-
-```bash
-source venv/bin/activate
-python app.py
-```
-
-Server runs at: `http://localhost:5000`
+---
 
 ## Database Schema
 
-### Company
-| Column | Type | Description |
-|--------|------|-------------|
-| id | Integer | Primary key |
-| ticker | String | Stock symbol (unique, indexed) |
-| name | String | Company name |
-| sector | String | Business sector |
-| industry | Industry classification |
-| website_url | String | Company website |
-| pe_ratio | Float | Yahoo trailing P/E ratio |
-| market_cap | BigInteger | Market capitalization |
+### Companies Table
 
-### FinancialReport
 | Column | Type | Description |
 |--------|------|-------------|
-| id | Integer | Primary key |
-| company_id | Integer | Foreign key to Company |
-| quarter | Integer | Quarter (1-4) |
-| year | Integer | Year |
-| revenue | Float | Total revenue |
-| opex | Float | Operating expenses |
-| capex | Float | Capital expenditures |
-| net_income | Float | Net income |
+| id | INTEGER | Primary key |
+| ticker | VARCHAR(20) | Stock symbol (unique, indexed) |
+| name | VARCHAR(200) | Company name |
+| sector | VARCHAR(100) | Business sector |
+| industry | VARCHAR(100) | Industry classification |
+| website_url | VARCHAR(500) | Company website |
+| pe_ratio | FLOAT | Yahoo trailing P/E |
+| market_cap | BIGINT | Market capitalization |
 
-### StockPrice
+### Financial Reports Table
+
 | Column | Type | Description |
 |--------|------|-------------|
-| id | Integer | Primary key |
-| company_id | Integer | Foreign key to Company |
-| date | Date | Trading date |
-| open_price | Float | Opening price |
-| high | Float | High price |
-| low | Float | Low price |
-| close | Float | Closing price |
-| volume | BigInteger | Trading volume |
+| id | INTEGER | Primary key |
+| company_id | INTEGER | Foreign key to companies |
+| quarter | INTEGER | Fiscal quarter (1-4) |
+| year | INTEGER | Fiscal year |
+| revenue | FLOAT | Total revenue |
+| opex | FLOAT | Operating expenses |
+| capex | FLOAT | Capital expenditures |
+| net_income | FLOAT | Net profit |
+
+### Stock Prices Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key |
+| company_id | INTEGER | Foreign key to companies |
+| date | DATE | Trading date |
+| open_price | FLOAT | Opening price |
+| high | FLOAT | Intraday high |
+| low | FLOAT | Intraday low |
+| close | FLOAT | Closing price |
+| volume | BIGINT | Trading volume |
+
+### Database Indexes
+
+```sql
+CREATE INDEX idx_ticker ON companies(ticker);
+CREATE INDEX idx_company_report ON financial_reports(company_id, year, quarter);
+CREATE INDEX idx_company_date ON stock_prices(company_id, date);
+```
+
+---
 
 ## API Endpoints
 
-### GET /
-**Homepage** - Returns HTML page with filtered companies table.
+### Homepage
+- **Route:** `GET /`
+- **Description:** Filtered companies table
+- **Parameters:** max_pe, min_growth, use_calc_pe, min_pe_spread_*
 
-Query Parameters:
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| max_pe | float | 25 | Maximum P/E ratio filter |
-| min_growth | float | 10 | Minimum revenue growth % |
-| use_calc_pe | string | "false" | "true" to use calculated P/E |
-| min_pe_spread | float | - | Minimum \|Calc - Yahoo\| P/E spread |
+### All Companies
+- **Route:** `GET /all`
+- **Description:** Complete company list without filters
 
-**Examples:**
-```
-/                              # Default: P/E < 25, Growth > 10%
-/?max_pe=30&min_growth=5      # P/E < 30, Growth > 5%
-/?use_calc_pe=true&max_pe=25  # Use calculated P/E
-/?min_pe_spread=20            # Show only where spread > 20
-```
+### Ticker Detail
+- **Route:** `GET /ticker/<company_id>`
+- **Description:** Detailed company analysis page
+- **Tabs:** Financials, Price, Combined, News, Risk Analysis, Competitors
 
-### GET /all
-**All Companies** - Returns HTML page with all companies (no filter).
+### Chart Data
+- **Route:** `GET /chart/<company_id>`
+- **Description:** JSON with financial and price data for charts
 
-### GET /ticker/<company_id>
-**Ticker Detail Page** - Returns HTML page with detailed company information:
-- Summary stats (P/E both methods, market cap, revenue, net income, growth)
-- Financial charts (revenue, opex, capex over time)
-- Stock price chart (1 year history)
-- Latest news tab (via Yahoo Finance API)
-- Competitors tab (same industry)
+### News API
+- **Route:** `GET /api/news/<ticker>`
+- **Description:** Latest company news from Yahoo Finance
+- **Response:** JSON array of news articles
 
-### GET /chart/<company_id>
-**Chart Data API** - Returns JSON with financial data and price history.
+### Risks API
+- **Route:** `GET /api/risks/<ticker>`
+- **Description:** Risk metrics with Low/Medium/High ratings
+- **Response:** JSON array of risk metrics
 
-Response:
-```json
-{
-  "ticker": "DIS",
-  "name": "Walt Disney Company (The)",
-  "reports": [
-    {
-      "period": "2024 Q4",
-      "revenue": 24.69,
-      "opex": 5.206,
-      "capex": 0
-    }
-  ],
-  "prices": [
-    {
-      "date": "2024-02-26",
-      "close": 105.54
-    }
-  ]
-}
-```
+---
 
-### GET /api/news/<ticker>
-**News API** - Returns JSON with latest company news from Yahoo Finance.
+## Financial Calculations
 
-## Filtering Logic
+### Calculated P/E Ratio
 
-### Revenue Growth Calculation
 ```python
-growth = ((current_quarter_revenue - previous_quarter_revenue) / previous_quarter_revenue) * 100
+Calculated P/E = Price / (TTM Net Income / Estimated Shares)
+
+Where:
+- Price = Latest closing price from database
+- TTM Net Income = Sum of last 4 quarters net income
+- Estimated Shares = Market Cap / Price
+```
+
+### Revenue Growth
+
+```python
+growth = ((current_quarter_revenue - previous_quarter_revenue) 
+          / previous_quarter_revenue) * 100
 ```
 
 ### Daily Price Change
+
 ```python
 daily_change = ((latest_close - previous_close) / previous_close) * 100
 ```
 
-### Calculated P/E Formula
-```python
-# Step 1: Get latest price
-latest_price = StockPrice.query.filter_by(company_id=id).order_by(date.desc()).first()
+---
 
-# Step 2: Get TTM net income (last 4 quarters)
-reports = FinancialReport.query.filter_by(company_id=id).order_by(year.desc(), quarter.desc()).limit(4).all()
-ttm_net_income = sum(r.net_income for r in reports)
+## Frontend Features
 
-# Step 3: Estimate shares from market cap
-estimated_shares = company.market_cap / latest_price.close
+### Homepage
 
-# Step 4: Calculate EPS and P/E
-eps = ttm_net_income / estimated_shares
-calculated_pe = latest_price.close / eps
-```
+- **Filter Form**: Adjustable inputs for P/E, growth, P/E spread
+- **Results Table**: Sortable columns with color-coded values
+- **Chart Modal**: Interactive Plotly chart with dual Y-axis
+- **Quick Links**: Direct links to Yahoo Finance, company website
 
-### P/E Spread
-```python
-pe_spread = calculated_pe - yahoo_pe_ratio
+### Ticker Page
 
-# Filter: Show only companies with |spread| > min_pe_spread
-if min_pe_spread and abs(pe_spread) < min_pe_spread:
-    exclude_company()
-```
+#### Summary Header
+- Stock price and daily change
+- P/E ratios (Yahoo and Calculated)
+- Market cap, revenue, net income
+- Revenue growth percentage
 
-## Chart Configuration
+#### Tab: Financials
+- Revenue/OPEX/CAPEX line chart
+- Quarterly data table
+- Notes on CAPEX interpretation
 
-- **Financial Chart**: Revenue, OPEX, CAPEX in billions ($)
-- **Price Chart**: Stock price with area fill
-- **Interactive**: Zoom, pan, hover tooltips via Plotly
+#### Tab: Stock Price
+- 1-year price history
+- Area fill for visual appeal
 
-## Current Database Stats
+#### Tab: Combined
+- Dual-axis chart
+- Financials on left axis
+- Stock price on right axis
 
-- **Companies**: 772
-- **Financial Reports**: 3,175+
-- **Price Records**: 150,000+
+#### Tab: News
+- Latest 10 news articles
+- Links to full articles
 
-## Current Filtered Results (Default Filters)
+#### Tab: Risk Analysis
+- Beta (volatility)
+- Debt to Equity
+- Audit risk, Compensation risk
+- Dividend metrics
 
-Companies matching criteria (P/E < 25, revenue growth > 10%):
+#### Tab: Competitors
+- Companies in same industry
+- Revenue, OPEX, CAPEX, Net Income
+- Percentage comparisons
 
-| Ticker | P/E (Yahoo) | P/E (Calc) | Spread | Growth |
-|--------|-------------|-------------|--------|--------|
-| DIS | 15.62 | ~15.7 | -0.9 | 15.7% |
-| SO | 23.83 | ~23.1 | -0.7 | 12.2% |
-| DUK | 20.36 | ~19.8 | -0.6 | 13.8% |
-| GD | 22.73 | ~22.1 | -0.6 | 11.4% |
+---
 
-## Understanding P/E Spread
+## Understanding P/E Metrics
 
-Large spreads between calculated and Yahoo P/E can indicate:
+### Yahoo P/E vs Calculated P/E
 
-| Scenario | Calculated vs Yahoo | Possible Reasons |
-|----------|---------------------|------------------|
-| Calculated >> Yahoo | Positive spread | One-time earnings boost, market cap outdated, accounting differences |
-| Calculated << Yahoo | Negative spread | Expected earnings growth, conservative accounting, share count changes |
-| Similar | Small spread | Healthy alignment between market price and reported earnings |
+| Source | Description |
+|--------|-------------|
+| Yahoo P/E | Official trailing P/E from Yahoo Finance based on reported earnings |
+| Calculated P/E | Custom calculation using latest price and TTM net income |
 
-### Example: Companies with Large Spreads
+### P/E Spread Interpretation
 
-| Ticker | Yahoo P/E | Calc P/E | Spread |
-|--------|-----------|----------|--------|
-| GLBE | 87.95 | 794.54 | +706.59 |
-| LSCC | 4918.00 | 4362.62 | -555.38 |
-| TWLO | 569.25 | 259.88 | -309.37 |
-| GPC | 247.54 | 20.44 | -227.10 |
-| HE | 7.23 | 157.84 | +150.62 |
+| Spread | Meaning | Potential Cause |
+|--------|---------|------------------|
+| Large Positive | Calculated >> Yahoo | One-time earnings boost, outdated market cap |
+| Small Positive | Similar values | Healthy alignment |
+| Small Negative | Similar values | Healthy alignment |
+| Large Negative | Calculated << Yahoo | Expected growth, conservative accounting |
 
-These large spreads often indicate:
-- Very high/low Yahoo P/E (exceptional cases)
-- Significant differences in how earnings are calculated
-- Recent share issuances or buybacks not reflected in market cap
+### Example: Identifying Anomalies
 
-## Ticker Page Features
+Companies with large P/E spreads may indicate:
+- Exceptional one-time items
+- Accounting method differences
+- Recent share buybacks
+- Data quality issues
 
-### Summary Stats
-- Current stock price
-- Daily change %
-- P/E (Yahoo)
-- P/E (Calculated)
-- Market Cap
-- Quarterly Revenue
-- Quarterly Net Income
-- Revenue Growth %
-
-### Tabs
-1. **Financials**: Revenue, OPEX, CAPEX chart + quarterly table
-2. **Stock Price**: 1-year price history chart
-3. **News**: Latest 10 news articles from Yahoo Finance
-4. **Competitors**: Other companies in same industry
-
-## Dependencies
-
-- **Flask** - Web framework
-- **SQLAlchemy** - ORM
-- **Flask-SQLAlchemy** - Flask integration for SQLAlchemy
-- **yfinance** - Yahoo Finance data download
-- **pandas** - Data manipulation
-- **plotly** - Interactive charts
-- **Bootstrap 5** - UI styling
-
-## Extending
-
-### Add More Companies
-Modify `SAMPLE_TICKERS` list in `download_data.py` to add more tickers.
-
-### Change Default Filter Values
-Edit in `app.py`:
-```python
-max_pe = request.args.get("max_pe", 25, type=float)  # Change 25
-min_growth = request.args.get("min_growth", 10, type=float)  # Change 10
-```
-
-### Add More Financial Metrics
-1. Add columns to `FinancialReport` model in `models.py`
-2. Update `download_data.py` to fetch new data
-3. Update templates to display new data
-
-### Modify Chart Display
-Edit `templates/ticker.html` JavaScript section to change:
-- Chart colors
-- Line styles
-- Axis labels
-- Time periods
+---
 
 ## Troubleshooting
 
-### No companies showing
-- Run `python download_data.py` to populate database
-- Check database: `sqlite3 stocks.db "SELECT * FROM companies LIMIT 5;"`
+### No companies showing after running download_data.py
 
-### Chart not loading
-- Check API: `curl http://localhost:5000/chart/1`
-- Verify financial reports exist in database
+**Cause:** Database not populated
 
-### Import errors
-- Ensure virtual environment is activated: `source venv/bin/activate`
-- Reinstall: `pip install -r requirements.txt`
+**Solution:**
+```bash
+python download_data.py
+```
+
+### Chart not loading on ticker page
+
+**Cause:** Missing financial data for company
+
+**Solution:** Check if company has financial reports in database
+```bash
+sqlite3 stocks.db "SELECT * FROM financial_reports WHERE company_id=1 LIMIT 5;"
+```
 
 ### Calculated P/E showing as None
-- Requires 4 quarters of financial data
-- Requires valid market cap
-- Company must have positive net income
 
-## URLs
+**Cause:** Insufficient data for calculation
 
-- Homepage: `http://localhost:5000/`
-- All Companies: `http://localhost:5000/all`
-- Ticker Example: `http://localhost:5000/ticker/30` (DIS)
+**Requirements:**
+- At least 4 quarters of net income data
+- Valid market cap from Yahoo Finance
+- Positive net income
 
-## Design Decisions
+### Import errors when running app
 
-1. **Calculated P/E uses market cap estimation** - Since exact share counts aren't always available, we estimate using market cap / price
-2. **4-quarter TTM** - Uses last 4 quarters for trailing twelve months earnings
-3. **P/E Spread filter is minimum** - Shows companies where the difference is larger (interesting anomalies)
-4. **Green/Red colors**:
-   - Green (negative spread): Calculated < Yahoo (potentially undervalued)
-   - Red (positive spread): Calculated > Yahoo (potentially overvalued)
+**Cause:** Virtual environment not activated
+
+**Solution:**
+```bash
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Database locked error
+
+**Cause:** Another process using database
+
+**Solution:** Close other Flask instances and try again
+
+---
+
+## Technology Stack
+
+### Backend
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Web Framework | Flask 3.1.x | HTTP routing, request handling |
+| ORM | SQLAlchemy 2.x | Database abstraction |
+| Database | SQLite 3.x | Local data storage |
+| Data API | yfinance | Yahoo Finance data fetching |
+| Data Processing | pandas | Data manipulation |
+
+### Frontend
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| UI Framework | Bootstrap 5.3 | Responsive design |
+| Charts | Plotly.js 2.27 | Interactive visualizations |
+| JavaScript | ES6+ | Client-side logic |
+| Styling | CSS Variables | Dark theme |
+
+---
+
+## Current Statistics
+
+As of the latest data download:
+
+- **Companies**: 770+
+- **Financial Reports**: 3,000+
+- **Stock Prices**: 150,000+
+- **CAPEX Records**: 500+
+
+---
+
+## Understanding the UI
+
+### Color Coding
+
+| Color | Meaning |
+|-------|---------|
+| Green | Positive values, undervaluation signals |
+| Red | Negative values, overvaluation signals |
+| Blue | Accent, interactive elements |
+
+### Dark Theme
+
+The application uses a dark theme inspired by GitHub's design:
+- Background: `#0d1117`
+- Cards: `#161b22`
+- Borders: `#30363d`
+- Text: `#e6edf3`
+
+---
+
+## License
+
+MIT License - Feel free to use and modify for your own purposes.
+
+---
+
+## Additional Resources
+
+- [Yahoo Finance](https://finance.yahoo.com/) - Source of financial data
+- [Flask Documentation](https://flask.palletsprojects.com/) - Web framework
+- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/) - ORM
+- [Plotly JavaScript](https://plotly.com/javascript/) - Charting library
+- [Bootstrap 5](https://getbootstrap.com/) - UI framework
