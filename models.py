@@ -15,6 +15,8 @@ class Company(db.Model):
     website_url = db.Column(db.String(500))
     pe_ratio = db.Column(db.Float)
     market_cap = db.Column(db.BigInteger)
+    debt_to_equity = db.Column(db.Float)
+    total_debt = db.Column(db.BigInteger)
 
     financial_reports = db.relationship(
         "FinancialReport", backref="company", lazy="dynamic"

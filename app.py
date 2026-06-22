@@ -7,8 +7,9 @@ import subprocess
 import sys
 import threading
 import time
+from urllib.parse import urlencode
 from flask import Flask, render_template, jsonify, request, make_response
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 from models import db, Company, FinancialReport, StockPrice
 import plotly.graph_objs as go
@@ -26,8 +27,29 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
 
+
+def ensure_company_metric_columns():
+    """Add newer optional company metric columns to existing SQLite databases."""
+    inspector = inspect(db.engine)
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("companies")
+    }
+    column_definitions = {
+        "debt_to_equity": "FLOAT",
+        "total_debt": "BIGINT",
+    }
+
+    for column_name, column_type in column_definitions.items():
+        if column_name not in existing_columns:
+            db.session.execute(
+                text(f"ALTER TABLE companies ADD COLUMN {column_name} {column_type}")
+            )
+    db.session.commit()
+
+
 with app.app_context():
     db.create_all()
+    ensure_company_metric_columns()
 
 
 def quarter_end_date(year, quarter):
@@ -210,6 +232,10 @@ def index():
     min_pe_spread_abs = request.args.get("min_pe_spread_abs", type=float)
     min_pe_spread_pos = request.args.get("min_pe_spread_pos", type=float)
     min_pe_spread_neg = request.args.get("min_pe_spread_neg", type=float)
+    max_debt_to_equity = request.args.get("max_debt_to_equity", type=float)
+    max_debt_to_market_cap_pct = request.args.get(
+        "max_debt_to_market_cap_pct", type=float
+    )
     search = request.args.get("search", "").strip()
     sort_by = request.args.get("sort_by", "ticker")
     order = request.args.get("order", "asc")
@@ -225,9 +251,9 @@ def index():
         else:
             pe = company.pe_ratio
 
-        if pe and pe < max_pe:
+        if pe is not None and pe < max_pe:
             growth = company.revenue_growth
-            if growth and growth > min_growth:
+            if growth is not None and growth > min_growth:
                 if search:
                     search_match = False
                     search_lower = search.lower()
@@ -243,9 +269,19 @@ def index():
                         continue
 
                 pe_spread = None
-                if calc_pe_val and company.pe_ratio:
+                if calc_pe_val is not None and company.pe_ratio is not None:
                     pe_spread = calc_pe_val - company.pe_ratio
 
+                spread_filter_requested = any(
+                    value is not None
+                    for value in [
+                        min_pe_spread_abs,
+                        min_pe_spread_pos,
+                        min_pe_spread_neg,
+                    ]
+                )
+                if spread_filter_requested and pe_spread is None:
+                    continue
                 if pe_spread is not None:
                     # Filter by absolute spread
                     if min_pe_spread_abs is not None:
@@ -260,6 +296,25 @@ def index():
                         if pe_spread > -min_pe_spread_neg:
                             continue
 
+                debt_to_market_cap_pct = None
+                if company.total_debt is not None and company.market_cap:
+                    debt_to_market_cap_pct = (
+                        company.total_debt / company.market_cap
+                    ) * 100
+
+                if max_debt_to_equity is not None:
+                    if (
+                        company.debt_to_equity is None
+                        or company.debt_to_equity > max_debt_to_equity
+                    ):
+                        continue
+                if max_debt_to_market_cap_pct is not None:
+                    if (
+                        debt_to_market_cap_pct is None
+                        or debt_to_market_cap_pct > max_debt_to_market_cap_pct
+                    ):
+                        continue
+
                 companies.append(
                     {
                         "id": company.id,
@@ -269,6 +324,8 @@ def index():
                         "pe_calc": calc_pe_val,
                         "pe_spread": pe_spread,
                         "revenue_growth": growth,
+                        "debt_to_equity": company.debt_to_equity,
+                        "debt_to_market_cap_pct": debt_to_market_cap_pct,
                         "website_url": company.website_url,
                         "yahoo_finance_url": company.yahoo_finance_url,
                         "daily_change": company.daily_price_change_pct,
@@ -301,10 +358,100 @@ def index():
             key=lambda x: (x["daily_change"] is None, x["daily_change"] or 0),
             reverse=(order == "desc"),
         )
+    elif sort_by == "debt_to_equity":
+        companies.sort(
+            key=lambda x: (x["debt_to_equity"] is None, x["debt_to_equity"] or 0),
+            reverse=(order == "desc"),
+        )
     elif sort_by == "ticker":
         companies.sort(key=lambda x: x["ticker"] or "", reverse=(order == "desc"))
     elif sort_by == "name":
         companies.sort(key=lambda x: x["name"] or "", reverse=(order == "desc"))
+
+    use_calc_pe_param = "true" if use_calc_pe else "false"
+    base_query_args = {
+        "search": search,
+        "max_pe": max_pe,
+        "min_growth": min_growth,
+        "use_calc_pe": use_calc_pe_param,
+        "min_pe_spread_abs": min_pe_spread_abs if min_pe_spread_abs is not None else "",
+        "min_pe_spread_pos": min_pe_spread_pos if min_pe_spread_pos is not None else "",
+        "min_pe_spread_neg": min_pe_spread_neg if min_pe_spread_neg is not None else "",
+        "max_debt_to_equity": max_debt_to_equity if max_debt_to_equity is not None else "",
+        "max_debt_to_market_cap_pct": max_debt_to_market_cap_pct
+        if max_debt_to_market_cap_pct is not None
+        else "",
+    }
+    sortable_fields = [
+        "ticker",
+        "name",
+        "pe_ratio",
+        "pe_calc",
+        "pe_spread",
+        "revenue_growth",
+        "daily_change",
+        "debt_to_equity",
+    ]
+    sort_urls = {}
+    for field in sortable_fields:
+        next_order = "desc" if sort_by == field and order == "asc" else "asc"
+        sort_query = urlencode(
+            {**base_query_args, "sort_by": field, "order": next_order}
+        )
+        sort_urls[field] = f"/?{sort_query}"
+
+    export_query = urlencode({**base_query_args, "sort_by": sort_by, "order": order})
+    preset_definitions = {
+        "value": {
+            "max_pe": 20,
+            "min_growth": 5,
+            "use_calc_pe": "false",
+            "max_debt_to_equity": 100,
+            "sort_by": "pe_ratio",
+            "order": "asc",
+        },
+        "growth": {
+            "max_pe": 45,
+            "min_growth": 20,
+            "use_calc_pe": "false",
+            "sort_by": "revenue_growth",
+            "order": "desc",
+        },
+        "anomaly": {
+            "max_pe": 100,
+            "min_growth": -100,
+            "use_calc_pe": "false",
+            "min_pe_spread_abs": 20,
+            "sort_by": "pe_spread",
+            "order": "desc",
+        },
+        "calculated": {
+            "max_pe": 25,
+            "min_growth": 10,
+            "use_calc_pe": "true",
+            "sort_by": "pe_calc",
+            "order": "asc",
+        },
+    }
+    preset_urls = {
+        preset_name: f"/?{urlencode(preset_args)}"
+        for preset_name, preset_args in preset_definitions.items()
+    }
+    preset_urls["reset"] = "/"
+    active_filters = [
+        f"Search: {search}" if search else None,
+        f"Max P/E: {max_pe:g}",
+        f"Min growth: {min_growth:g}%",
+        "Calculated P/E basis" if use_calc_pe else "Yahoo P/E basis",
+        f"|Spread| ≥ {min_pe_spread_abs:g}" if min_pe_spread_abs is not None else None,
+        f"Spread ≥ {min_pe_spread_pos:g}" if min_pe_spread_pos is not None else None,
+        f"Spread ≤ -{min_pe_spread_neg:g}" if min_pe_spread_neg is not None else None,
+        f"Debt/Equity ≤ {max_debt_to_equity:g}" if max_debt_to_equity is not None else None,
+        f"Debt/Market cap ≤ {max_debt_to_market_cap_pct:g}%"
+        if max_debt_to_market_cap_pct is not None
+        else None,
+    ]
+    active_filters = [filter_label for filter_label in active_filters if filter_label]
 
     return render_template(
         "index.html",
@@ -315,9 +462,16 @@ def index():
         min_pe_spread_abs=min_pe_spread_abs,
         min_pe_spread_pos=min_pe_spread_pos,
         min_pe_spread_neg=min_pe_spread_neg,
+        max_debt_to_equity=max_debt_to_equity,
+        max_debt_to_market_cap_pct=max_debt_to_market_cap_pct,
         search=search,
         sort_by=sort_by,
         order=order,
+        use_calc_pe_param=use_calc_pe_param,
+        sort_urls=sort_urls,
+        export_query=export_query,
+        active_filters=active_filters,
+        preset_urls=preset_urls,
     )
 
 
@@ -507,6 +661,145 @@ def chart(company_id):
             "prices": price_data,
         }
     )
+
+
+def company_to_api_dict(company, include_details=False):
+    """Serialize a company record for the public JSON API."""
+    calc_pe = calculate_pe(company)
+    pe_spread = (
+        calc_pe - company.pe_ratio
+        if calc_pe is not None and company.pe_ratio is not None
+        else None
+    )
+    payload = {
+        "id": company.id,
+        "ticker": company.ticker,
+        "name": company.name,
+        "sector": company.sector,
+        "industry": company.industry,
+        "website_url": company.website_url,
+        "yahoo_finance_url": company.yahoo_finance_url,
+        "pe_ratio": company.pe_ratio,
+        "pe_calc": calc_pe,
+        "pe_spread": pe_spread,
+        "market_cap": company.market_cap,
+        "debt_to_equity": company.debt_to_equity,
+        "total_debt": company.total_debt,
+        "revenue_growth": company.revenue_growth,
+        "daily_change": company.daily_price_change_pct,
+    }
+
+    if include_details:
+        latest_report = (
+            company.financial_reports.order_by(
+                FinancialReport.year.desc(), FinancialReport.quarter.desc()
+            ).first()
+        )
+        latest_price = company.stock_prices.order_by(StockPrice.date.desc()).first()
+        payload["latest_report"] = {
+            "year": latest_report.year,
+            "quarter": latest_report.quarter,
+            "revenue": latest_report.revenue,
+            "opex": latest_report.opex,
+            "capex": latest_report.capex,
+            "net_income": latest_report.net_income,
+        } if latest_report else None
+        payload["latest_price"] = {
+            "date": latest_price.date.isoformat(),
+            "open": latest_price.open_price,
+            "high": latest_price.high,
+            "low": latest_price.low,
+            "close": latest_price.close,
+            "volume": latest_price.volume,
+        } if latest_price else None
+
+    return payload
+
+
+def apply_company_api_filters(query):
+    search = request.args.get("search", "").strip()
+    sector = request.args.get("sector", "").strip()
+    industry = request.args.get("industry", "").strip()
+    max_debt_to_equity = request.args.get("max_debt_to_equity", type=float)
+    max_debt_to_market_cap_pct = request.args.get(
+        "max_debt_to_market_cap_pct", type=float
+    )
+
+    if search:
+        query = query.filter(
+            (Company.ticker.ilike(f"%{search}%"))
+            | (Company.name.ilike(f"%{search}%"))
+            | (Company.industry.ilike(f"%{search}%"))
+            | (Company.sector.ilike(f"%{search}%"))
+        )
+    if sector:
+        query = query.filter(Company.sector.ilike(f"%{sector}%"))
+    if industry:
+        query = query.filter(Company.industry.ilike(f"%{industry}%"))
+    if max_debt_to_equity is not None:
+        query = query.filter(
+            Company.debt_to_equity.isnot(None),
+            Company.debt_to_equity <= max_debt_to_equity,
+        )
+    if max_debt_to_market_cap_pct is not None:
+        query = query.filter(
+            Company.total_debt.isnot(None),
+            Company.market_cap.isnot(None),
+            Company.market_cap > 0,
+            Company.total_debt
+            <= (Company.market_cap * max_debt_to_market_cap_pct / 100),
+        )
+
+    return query
+
+
+@app.route("/api/companies")
+def api_companies():
+    page = max(request.args.get("page", 1, type=int) or 1, 1)
+    per_page = request.args.get("per_page", 50, type=int) or 50
+    per_page = min(max(per_page, 1), 100)
+    sort_by = request.args.get("sort", "ticker")
+    order = request.args.get("order", "asc")
+    allowed_sort_columns = {
+        "ticker": Company.ticker,
+        "name": Company.name,
+        "sector": Company.sector,
+        "industry": Company.industry,
+        "pe_ratio": Company.pe_ratio,
+        "market_cap": Company.market_cap,
+        "debt_to_equity": Company.debt_to_equity,
+        "total_debt": Company.total_debt,
+    }
+
+    query = apply_company_api_filters(Company.query)
+    sort_column = allowed_sort_columns.get(sort_by, Company.ticker)
+    query = query.order_by(
+        sort_column.desc() if order == "desc" else sort_column.asc()
+    )
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify(
+        {
+            "companies": [company_to_api_dict(company) for company in pagination.items],
+            "pagination": {
+                "page": pagination.page,
+                "per_page": pagination.per_page,
+                "total": pagination.total,
+                "pages": pagination.pages,
+                "has_next": pagination.has_next,
+                "has_prev": pagination.has_prev,
+            },
+        }
+    )
+
+
+@app.route("/api/companies/<ticker>")
+def api_company_detail(ticker):
+    company = Company.query.filter_by(ticker=ticker.upper()).first()
+    if not company:
+        return jsonify({"error": "Company not found", "ticker": ticker}), 404
+
+    return jsonify(company_to_api_dict(company, include_details=True))
 
 
 @app.route("/api/news/<ticker>")
@@ -846,6 +1139,10 @@ def export_csv():
     min_pe_spread_abs = request.args.get("min_pe_spread_abs", type=float)
     min_pe_spread_pos = request.args.get("min_pe_spread_pos", type=float)
     min_pe_spread_neg = request.args.get("min_pe_spread_neg", type=float)
+    max_debt_to_equity = request.args.get("max_debt_to_equity", type=float)
+    max_debt_to_market_cap_pct = request.args.get(
+        "max_debt_to_market_cap_pct", type=float
+    )
 
     is_filtered = any(
         [
@@ -855,6 +1152,8 @@ def export_csv():
             request.args.get("min_pe_spread_abs"),
             request.args.get("min_pe_spread_pos"),
             request.args.get("min_pe_spread_neg"),
+            request.args.get("max_debt_to_equity"),
+            request.args.get("max_debt_to_market_cap_pct"),
         ]
     )
 
@@ -870,9 +1169,9 @@ def export_csv():
             else:
                 pe = company.pe_ratio
 
-            if pe and pe < max_pe:
+            if pe is not None and pe < max_pe:
                 growth = company.revenue_growth
-                if growth and growth > min_growth:
+                if growth is not None and growth > min_growth:
                     if search:
                         search_match = False
                         search_lower = search.lower()
@@ -891,9 +1190,19 @@ def export_csv():
                             continue
 
                     pe_spread = None
-                    if calc_pe_val and company.pe_ratio:
+                    if calc_pe_val is not None and company.pe_ratio is not None:
                         pe_spread = calc_pe_val - company.pe_ratio
 
+                    spread_filter_requested = any(
+                        value is not None
+                        for value in [
+                            min_pe_spread_abs,
+                            min_pe_spread_pos,
+                            min_pe_spread_neg,
+                        ]
+                    )
+                    if spread_filter_requested and pe_spread is None:
+                        continue
                     if pe_spread is not None:
                         if min_pe_spread_abs is not None:
                             if abs(pe_spread) < min_pe_spread_abs:
@@ -905,11 +1214,31 @@ def export_csv():
                             if pe_spread > -min_pe_spread_neg:
                                 continue
 
+                    debt_to_market_cap_pct = None
+                    if company.total_debt is not None and company.market_cap:
+                        debt_to_market_cap_pct = (
+                            company.total_debt / company.market_cap
+                        ) * 100
+
+                    if max_debt_to_equity is not None:
+                        if (
+                            company.debt_to_equity is None
+                            or company.debt_to_equity > max_debt_to_equity
+                        ):
+                            continue
+                    if max_debt_to_market_cap_pct is not None:
+                        if (
+                            debt_to_market_cap_pct is None
+                            or debt_to_market_cap_pct > max_debt_to_market_cap_pct
+                        ):
+                            continue
+
                     companies.append(
                         {
                             "company": company,
                             "calc_pe": calc_pe_val,
                             "pe_spread": pe_spread,
+                            "debt_to_market_cap_pct": debt_to_market_cap_pct,
                         }
                     )
     else:
@@ -934,13 +1263,17 @@ def export_csv():
         for company in companies_list:
             calc_pe = calculate_pe(company)
             pe_spread = None
-            if calc_pe and company.pe_ratio:
+            if calc_pe is not None and company.pe_ratio is not None:
                 pe_spread = calc_pe - company.pe_ratio
+            debt_to_market_cap_pct = None
+            if company.total_debt is not None and company.market_cap:
+                debt_to_market_cap_pct = (company.total_debt / company.market_cap) * 100
             companies.append(
                 {
                     "company": company,
                     "calc_pe": calc_pe,
                     "pe_spread": pe_spread,
+                    "debt_to_market_cap_pct": debt_to_market_cap_pct,
                 }
             )
 
@@ -959,6 +1292,14 @@ def export_csv():
         elif sort_by == "pe_spread":
             companies.sort(
                 key=lambda x: (x["pe_spread"] is None, x["pe_spread"] or 0),
+                reverse=(order == "desc"),
+            )
+        elif sort_by == "debt_to_equity":
+            companies.sort(
+                key=lambda x: (
+                    x["company"].debt_to_equity is None,
+                    x["company"].debt_to_equity or 0,
+                ),
                 reverse=(order == "desc"),
             )
         elif sort_by == "ticker":
@@ -983,6 +1324,8 @@ def export_csv():
             "P/E (Calculated)",
             "P/E Spread",
             "Market Cap",
+            "Debt to Equity",
+            "Debt to Market Cap %",
             "Daily Change %",
         ]
     )
@@ -1002,6 +1345,8 @@ def export_csv():
                 calc_pe or "",
                 pe_spread or "",
                 company.market_cap or "",
+                company.debt_to_equity or "",
+                item.get("debt_to_market_cap_pct") or "",
                 company.daily_price_change_pct or "",
             ]
         )

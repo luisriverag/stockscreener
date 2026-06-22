@@ -4,6 +4,37 @@ This document outlines planned and proposed enhancements for the Stock Screener 
 
 ---
 
+## High Priority - API & MCP
+
+API and MCP work are now top-priority integration tracks because external tools, automations, and MCP-compatible clients need stable machine-readable access to screening data.
+
+### REST API
+
+- [x] Initial read-only Companies JSON API
+  - `GET /api/companies` with pagination, search, filters, and safe sorting
+  - `GET /api/companies/<ticker>` with computed metrics, latest report, and latest price
+  - Human-readable documentation in `docs/API.md`
+- [ ] Add route-level tests with Flask's test client once app dependencies are available in CI
+- [ ] Publish an OpenAPI specification for generated clients and interactive docs
+- [ ] Add API versioning strategy, for example `/api/v1/...`, before adding write endpoints
+- [ ] Add optional API authentication, rate limiting, and response caching for third-party usage
+- [ ] Expand endpoints for sectors, industries, chart payloads, and market-data refresh metadata
+
+### MCP Server
+
+- [x] Initial stdio MCP server
+  - `list_companies` and `get_company` tools
+  - `stockscreener://docs/api` and `stockscreener://companies` resources
+  - Protocol negotiation, batching, notifications, ping, and structured tool content
+  - Human-readable documentation in `docs/MCP.md`
+- [ ] Validate against multiple MCP clients and record compatibility notes
+- [ ] Add resource templates for common company-list query patterns
+- [ ] Add packaging/config examples for local MCP client setup
+- [ ] Add integration tests for data-returning MCP tools once app dependencies are available in CI
+- [ ] Keep MCP tool schemas aligned with REST API query parameters and response shapes
+
+---
+
 ## Version 2.0 - Planned Features
 
 ### Data Updates
@@ -111,12 +142,13 @@ This document outlines planned and proposed enhancements for the Stock Screener 
   - Parse MD&A (Management Discussion)
   - Track executive comments
 
-### API Development
+### API & MCP Development
 
-- [ ] RESTful API for third-party access
+- [ ] Continue high-priority REST API and MCP hardening from the dedicated section above
   - Authentication via API keys
   - Rate limiting
   - Documentation (OpenAPI/Swagger)
+  - MCP client compatibility validation
 
 ### Export/Import
 
@@ -208,6 +240,10 @@ Have an idea? Submit a feature request!
 - [x] Dark theme UI
 - [x] Responsive design
 - [x] All companies listing
+- [x] Companies JSON API foundation
+- [x] MCP stdio server foundation
+- [x] API and MCP documentation
+- [x] Dashboard quick filter presets and active filter summary
 
 ### Version 1.1 (Recent Updates)
 
@@ -233,4 +269,4 @@ Contributions are welcome! Please see the main README for setup instructions.
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: June 2026*

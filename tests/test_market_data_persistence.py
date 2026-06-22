@@ -25,6 +25,16 @@ def test_market_data_models_exist_with_freshness_metadata():
         assert field in models
 
 
+def test_company_models_include_debt_filter_metrics():
+    models = read("models.py")
+    downloader = read("download_data.py")
+
+    assert "debt_to_equity = db.Column(db.Float)" in models
+    assert "total_debt = db.Column(db.BigInteger)" in models
+    assert 'company.debt_to_equity = info.get("debtToEquity")' in downloader
+    assert 'company.total_debt = info.get("totalDebt")' in downloader
+
+
 def test_downloader_persists_market_data_refreshes():
     downloader = read("download_data.py")
     assert "from market_data import fetch_market_data, persist_market_data" in downloader

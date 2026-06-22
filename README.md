@@ -262,6 +262,16 @@ CREATE INDEX idx_company_date ON stock_prices(company_id, date);
 - **Description:** Detailed company analysis page
 - **Tabs:** Financials, Price, Combined, News, Risk Analysis, Competitors
 
+### Companies API
+- **Route:** `GET /api/companies`
+- **Description:** Paginated JSON company list with search, sector/industry, debt, sorting, and pagination query parameters
+- **Documentation:** See [API docs](docs/API.md)
+
+### Company Detail API
+- **Route:** `GET /api/companies/<ticker>`
+- **Description:** JSON company detail with computed screening metrics, latest report, and latest price
+- **Documentation:** See [API docs](docs/API.md)
+
 ### Chart Data
 - **Route:** `GET /chart/<company_id>`
 - **Description:** JSON with financial and price data for charts
@@ -499,12 +509,14 @@ The application uses a dark theme inspired by GitHub's design:
 python -m pytest
 ```
 
-The test suite currently includes static regression checks for market-data persistence models, downloader refresh wiring, API cache-first behavior, and helper coverage.
+The test suite includes regression checks for market-data persistence models, downloader refresh wiring, API cache-first behavior, company API documentation coverage, MCP protocol metadata behavior, and an MCP stdio initialize smoke test.
 
 ---
 
 ## Additional Documentation
 
+- [API reference](docs/API.md)
+- [MCP server guide](docs/MCP.md)
 - [Technical specification](docs/SPEC.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Improvement ideas](docs/IDEAS.md)

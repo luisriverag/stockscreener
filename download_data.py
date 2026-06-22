@@ -1036,6 +1036,8 @@ def download_company_data(ticker, session):
         company.pe_ratio = info.get("trailingPE")
         company.pe_forward = info.get("forwardPE")
         company.market_cap = info.get("marketCap")
+        company.debt_to_equity = info.get("debtToEquity")
+        company.total_debt = info.get("totalDebt")
 
         shares = info.get("sharesOutstanding")
         if shares:
