@@ -195,8 +195,9 @@
             gap: 0.45rem;
             grid-column: span 1;
             justify-content: flex-start;
+            min-height: 2.4rem;
             padding: 0.6rem 0.75rem;
-            width: fit-content;
+            width: 100%;
         }
 
         .compact-checkbox .form-check {
@@ -225,10 +226,84 @@
         }
 
         .filter-actions {
-            align-items: end;
+            align-items: center;
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
+            grid-column: 1 / -1;
+            justify-content: flex-end;
+        }
+
+        .active-filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .filter-chip {
+            background: rgba(88, 166, 255, 0.10);
+            border: 1px solid rgba(88, 166, 255, 0.34);
+            border-radius: 999px;
+            color: var(--text-primary);
+            display: inline-flex;
+            font-size: 0.82rem;
+            padding: 0.32rem 0.65rem;
+        }
+
+        .filter-help {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .quick-filter-grid {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            margin-bottom: 1rem;
+        }
+
+        .preset-card {
+            background: rgba(13, 17, 23, 0.48);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text-primary);
+            padding: 0.85rem;
+            text-decoration: none;
+            transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+        }
+
+        .preset-card:hover {
+            background: rgba(88, 166, 255, 0.10);
+            border-color: rgba(88, 166, 255, 0.55);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        .preset-card strong {
+            display: block;
+            font-size: 0.95rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .preset-card span {
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+        }
+
+        .filter-section-label {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 700;
+            grid-column: 1 / -1;
+            letter-spacing: 0.08em;
+            margin-bottom: -0.4rem;
+            text-transform: uppercase;
+        }
+
+        .results-meta {
+            color: var(--text-secondary);
+            font-size: 0.82rem;
         }
 
         .metric-badge {
@@ -324,13 +399,35 @@
                         <p class="text-secondary mb-0 small">Tune criteria without losing sort state; active constraints are summarized below.</p>
                     </div>
                     {% if companies %}
-                    <a href="/export/csv?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by={{ sort_by }}&order={{ order }}" class="btn btn-sm btn-outline-info">
+                    <a href="/export/csv?{{ export_query }}" class="btn btn-sm btn-outline-info">
                         📥 Export {{ companies|length }} results
                     </a>
                     {% endif %}
                 </div>
+
+                <div class="quick-filter-grid" aria-label="Quick filter presets">
+                    <a class="preset-card" href="{{ preset_urls['value'] }}">
+                        <strong>Value shortlist</strong>
+                        <span>P/E under 20, positive growth, debt/equity ≤ 100</span>
+                    </a>
+                    <a class="preset-card" href="{{ preset_urls['growth'] }}">
+                        <strong>Growth leaders</strong>
+                        <span>Revenue growth over 20%, sorted high to low</span>
+                    </a>
+                    <a class="preset-card" href="{{ preset_urls['anomaly'] }}">
+                        <strong>P/E anomalies</strong>
+                        <span>Large calculated-vs-Yahoo spread</span>
+                    </a>
+                    <a class="preset-card" href="{{ preset_urls['calculated'] }}">
+                        <strong>Calculated P/E</strong>
+                        <span>Use in-app TTM estimate for valuation</span>
+                    </a>
+                </div>
                 
                 <form class="filter-form" method="GET" action="/">
+                    <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                    <input type="hidden" name="order" value="{{ order }}">
+                    <div class="filter-section-label">Core filters</div>
                     <div class="form-group">
                         <label for="search">Search</label>
                         <input type="text" class="form-control" id="search" name="search" 
@@ -346,20 +443,37 @@
                         <input type="number" class="form-control" id="min_growth" name="min_growth" 
                                value="{{ min_growth }}" min="-100" max="100" step="1">
                     </div>
+                    <div class="filter-section-label">Balance sheet filters</div>
+                    <div class="form-group">
+                        <label for="max_debt_to_equity">Max Debt/Equity</label>
+                        <input type="number" class="form-control" id="max_debt_to_equity" name="max_debt_to_equity"
+                               value="{{ max_debt_to_equity if max_debt_to_equity is not none else '' }}" min="0" max="1000" step="1" placeholder="No limit">
+                        <span class="filter-help">Lower values usually indicate less leverage risk.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="max_debt_to_market_cap_pct">Max Debt/Market Cap (%)</label>
+                        <input type="number" class="form-control" id="max_debt_to_market_cap_pct" name="max_debt_to_market_cap_pct"
+                               value="{{ max_debt_to_market_cap_pct if max_debt_to_market_cap_pct is not none else '' }}" min="0" max="1000" step="1" placeholder="No limit">
+                        <span class="filter-help">Compares total debt with market value.</span>
+                    </div>
+                    <div class="filter-section-label">Optional P/E spread filters</div>
                     <div class="form-group">
                         <label for="min_pe_spread_abs">Min |Spread| (absolute)</label>
                         <input type="number" class="form-control" id="min_pe_spread_abs" name="min_pe_spread_abs" 
-                               value="{{ min_pe_spread_abs or '' }}" min="0" max="1000" step="0.5" placeholder="Any direction">
+                               value="{{ min_pe_spread_abs if min_pe_spread_abs is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Any direction">
+                        <span class="filter-help">Requires a calculated and Yahoo P/E spread.</span>
                     </div>
                     <div class="form-group">
                         <label for="min_pe_spread_pos">Min Positive Spread (Calc &gt; Yahoo)</label>
                         <input type="number" class="form-control" id="min_pe_spread_pos" name="min_pe_spread_pos" 
-                               value="{{ min_pe_spread_pos or '' }}" min="0" max="1000" step="0.5" placeholder="Calc > Yahoo">
+                               value="{{ min_pe_spread_pos if min_pe_spread_pos is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Calc > Yahoo">
+                        <span class="filter-help">Keeps companies where calculated P/E is higher.</span>
                     </div>
                     <div class="form-group">
                         <label for="min_pe_spread_neg">Min Negative Spread (Calc &lt; Yahoo)</label>
                         <input type="number" class="form-control" id="min_pe_spread_neg" name="min_pe_spread_neg" 
-                               value="{{ min_pe_spread_neg or '' }}" min="0" max="1000" step="0.5" placeholder="Calc < Yahoo">
+                               value="{{ min_pe_spread_neg if min_pe_spread_neg is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Calc < Yahoo">
+                        <span class="filter-help">Keeps companies where calculated P/E is lower.</span>
                     </div>
                     <div class="form-group compact-checkbox">
                         <div class="form-check">
@@ -370,16 +484,15 @@
                     </div>
                     <div class="filter-actions">
                         <button type="submit" class="btn btn-accent">Apply Filters</button>
-                        <a href="/" class="btn btn-outline-secondary">Reset</a>
+                        <a href="{{ preset_urls['reset'] }}" class="btn btn-outline-secondary">Clear all</a>
                     </div>
                 </form>
                 
-                <p class="text-secondary mt-3 mb-0">
-                    Showing companies with {% if use_calc_pe %}Calculated P/E{% else %}Yahoo P/E{% endif %} &lt; {{ max_pe }} and quarterly revenue growth &gt; {{ min_growth }}%
-                    {% if min_pe_spread_abs %} and |Spread| &gt; {{ min_pe_spread_abs }}{% endif %}
-                    {% if min_pe_spread_pos %} and Spread &gt; {{ min_pe_spread_pos }} (Calc &gt; Yahoo){% endif %}
-                    {% if min_pe_spread_neg %} and Spread &lt; -{{ min_pe_spread_neg }} (Calc &lt; Yahoo){% endif %}
-                </p>
+                <div class="active-filter-bar mt-3" aria-label="Active filters">
+                    {% for filter_label in active_filters %}
+                    <span class="filter-chip">{{ filter_label }}</span>
+                    {% endfor %}
+                </div>
             </div>
         </div>
 
@@ -389,48 +502,53 @@
                     <div>
                         <h5 class="card-title mb-1">Filtered Companies</h5>
                         <p class="text-secondary small mb-0">Click column headers to sort, or open a ticker for the full research view.</p>
+                        <div class="results-meta">Sorted by {{ sort_by|replace('_', ' ')|title }} ({{ order|upper }})</div>
                     </div>
                     <span class="summary-pill"><strong>{{ companies|length }}</strong> rows</span>
                 </div>
                 
                 {% if companies %}
-                {% set new_order = 'desc' if order == 'asc' else 'asc' %}
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
                                 <th>
-                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=ticker&order={{ new_order }}" class="sort-link {% if sort_by == 'ticker' %}active{% endif %}">
+                                    <a href="{{ sort_urls['ticker'] }}" class="sort-link {% if sort_by == 'ticker' %}active{% endif %}">
                                         Ticker {% if sort_by == 'ticker' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
                                     </a>
                                 </th>
                                 <th>
-                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=name&order={{ new_order }}" class="sort-link {% if sort_by == 'name' %}active{% endif %}">
+                                    <a href="{{ sort_urls['name'] }}" class="sort-link {% if sort_by == 'name' %}active{% endif %}">
                                         Name {% if sort_by == 'name' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
                                     </a>
                                 </th>
                                 <th>
-                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=pe_ratio&order={{ new_order }}" class="sort-link {% if sort_by == 'pe_ratio' %}active{% endif %}">
+                                    <a href="{{ sort_urls['pe_ratio'] }}" class="sort-link {% if sort_by == 'pe_ratio' %}active{% endif %}">
                                         P/E (Yahoo) {% if sort_by == 'pe_ratio' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
                                     </a>
                                 </th>
                                 <th>
-                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=pe_calc&order={{ new_order }}" class="sort-link {% if sort_by == 'pe_calc' %}active{% endif %}">
+                                    <a href="{{ sort_urls['pe_calc'] }}" class="sort-link {% if sort_by == 'pe_calc' %}active{% endif %}">
                                         P/E (Calc) {% if sort_by == 'pe_calc' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
                                     </a>
                                 </th>
                                 <th>
-                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=pe_spread&order={{ new_order }}" class="sort-link {% if sort_by == 'pe_spread' %}active{% endif %}">
+                                    <a href="{{ sort_urls['pe_spread'] }}" class="sort-link {% if sort_by == 'pe_spread' %}active{% endif %}">
                                         P/E Spread {% if sort_by == 'pe_spread' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
                                     </a>
                                 </th>
                                 <th>
-                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=revenue_growth&order={{ new_order }}" class="sort-link {% if sort_by == 'revenue_growth' %}active{% endif %}">
+                                    <a href="{{ sort_urls['revenue_growth'] }}" class="sort-link {% if sort_by == 'revenue_growth' %}active{% endif %}">
                                         Revenue Growth {% if sort_by == 'revenue_growth' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
                                     </a>
                                 </th>
                                 <th>
-                                    <a href="/?search={{ search }}&max_pe={{ max_pe }}&min_growth={{ min_growth }}&use_calc_pe={{ use_calc_pe }}&min_pe_spread_abs={{ min_pe_spread_abs or '' }}&min_pe_spread_pos={{ min_pe_spread_pos or '' }}&min_pe_spread_neg={{ min_pe_spread_neg or '' }}&sort_by=daily_change&order={{ new_order }}" class="sort-link {% if sort_by == 'daily_change' %}active{% endif %}">
+                                    <a href="{{ sort_urls['debt_to_equity'] }}" class="sort-link {% if sort_by == 'debt_to_equity' %}active{% endif %}">
+                                        Debt/Equity {% if sort_by == 'debt_to_equity' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+                                    </a>
+                                </th>
+                                <th>
+                                    <a href="{{ sort_urls['daily_change'] }}" class="sort-link {% if sort_by == 'daily_change' %}active{% endif %}">
                                         Daily Change {% if sort_by == 'daily_change' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
                                     </a>
                                 </th>
@@ -444,25 +562,29 @@
                                 <td><a href="/ticker/{{ company.id }}" class="ticker-link">{{ company.ticker }}</a></td>
                                 <td>{{ company.name or '-' }}</td>
                                 <td>
-                                    {% set pe_level = 'range-neutral' if not company.pe_ratio else 'range-good' if company.pe_ratio < 15 else 'range-watch' if company.pe_ratio < 25 else 'range-risk' %}
-                                    <span class="metric-badge {{ pe_level }}">{{ "%.2f"|format(company.pe_ratio) if company.pe_ratio else '-' }}</span>
+                                    {% set pe_level = 'range-neutral' if company.pe_ratio is none else 'range-good' if company.pe_ratio < 15 else 'range-watch' if company.pe_ratio < 25 else 'range-risk' %}
+                                    <span class="metric-badge {{ pe_level }}">{{ "%.2f"|format(company.pe_ratio) if company.pe_ratio is not none else '-' }}</span>
                                 </td>
                                 <td>
-                                    {% set pe_calc_level = 'range-neutral' if not company.pe_calc else 'range-good' if company.pe_calc < 15 else 'range-watch' if company.pe_calc < 25 else 'range-risk' %}
-                                    <span class="metric-badge {{ pe_calc_level }}">{{ "%.2f"|format(company.pe_calc) if company.pe_calc else '-' }}</span>
+                                    {% set pe_calc_level = 'range-neutral' if company.pe_calc is none else 'range-good' if company.pe_calc < 15 else 'range-watch' if company.pe_calc < 25 else 'range-risk' %}
+                                    <span class="metric-badge {{ pe_calc_level }}">{{ "%.2f"|format(company.pe_calc) if company.pe_calc is not none else '-' }}</span>
                                 </td>
                                 <td>
-                                    {% set spread_abs = company.pe_spread|abs if company.pe_spread else none %}
+                                    {% set spread_abs = company.pe_spread|abs if company.pe_spread is not none else none %}
                                     {% set spread_level = 'range-neutral' if spread_abs is none else 'range-good' if spread_abs < 5 else 'range-watch' if spread_abs < 20 else 'range-risk' %}
-                                    <span class="metric-badge {{ spread_level }}">{% if company.pe_spread %}{{ "%+.2f"|format(company.pe_spread) }}{% else %}-{% endif %}</span>
+                                    <span class="metric-badge {{ spread_level }}">{% if company.pe_spread is not none %}{{ "%+.2f"|format(company.pe_spread) }}{% else %}-{% endif %}</span>
                                 </td>
                                 <td>
-                                    {% set growth_level = 'range-neutral' if not company.revenue_growth else 'range-risk' if company.revenue_growth < 0 else 'range-watch' if company.revenue_growth < 20 else 'range-good' %}
-                                    <span class="metric-badge {{ growth_level }}">{{ "%.1f%%"|format(company.revenue_growth) if company.revenue_growth else '-' }}</span>
+                                    {% set growth_level = 'range-neutral' if company.revenue_growth is none else 'range-risk' if company.revenue_growth < 0 else 'range-watch' if company.revenue_growth < 20 else 'range-good' %}
+                                    <span class="metric-badge {{ growth_level }}">{{ "%.1f%%"|format(company.revenue_growth) if company.revenue_growth is not none else '-' }}</span>
                                 </td>
                                 <td>
-                                    {% set change_level = 'range-neutral' if not company.daily_change else 'range-risk' if company.daily_change < -2 else 'range-watch' if company.daily_change < 0 else 'range-good' if company.daily_change > 2 else 'range-neutral' %}
-                                    <span class="metric-badge {{ change_level }}">{% if company.daily_change %}{{ "%+.2f%%"|format(company.daily_change) }}{% else %}N/A{% endif %}</span>
+                                    {% set debt_level = 'range-neutral' if company.debt_to_equity is none else 'range-good' if company.debt_to_equity < 50 else 'range-watch' if company.debt_to_equity < 100 else 'range-risk' %}
+                                    <span class="metric-badge {{ debt_level }}">{{ "%.1f"|format(company.debt_to_equity) if company.debt_to_equity is not none else '-' }}</span>
+                                </td>
+                                <td>
+                                    {% set change_level = 'range-neutral' if company.daily_change is none else 'range-risk' if company.daily_change < -2 else 'range-watch' if company.daily_change < 0 else 'range-good' if company.daily_change > 2 else 'range-neutral' %}
+                                    <span class="metric-badge {{ change_level }}">{% if company.daily_change is not none %}{{ "%+.2f%%"|format(company.daily_change) }}{% else %}N/A{% endif %}</span>
                                 </td>
                                 <td>
                                     {% if company.website_url %}

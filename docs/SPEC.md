@@ -358,6 +358,36 @@ GET /?min_pe_spread_abs=50
 
 ---
 
+#### GET /api/companies
+
+**Purpose:** Return a paginated JSON list of companies for programmatic screening.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| page | int | 1 | 1-based page number |
+| per_page | int | 50 | Page size, capped at 100 |
+| search | string | - | Case-insensitive search across ticker, name, sector, and industry |
+| sector | string | - | Case-insensitive sector filter |
+| industry | string | - | Case-insensitive industry filter |
+| max_debt_to_equity | float | - | Maximum Yahoo Finance debt/equity value; missing debt data is excluded when this filter is used |
+| max_debt_to_market_cap_pct | float | - | Maximum total debt as a percentage of market cap; missing debt or market-cap data is excluded when this filter is used |
+| sort | string | ticker | One of `ticker`, `name`, `sector`, `industry`, `pe_ratio`, `market_cap`, `debt_to_equity`, or `total_debt` |
+| order | string | asc | `asc` or `desc` |
+
+**Response:** JSON object with `companies` and `pagination`. Company rows include stored fundamentals plus computed screening metrics such as `pe_calc`, `pe_spread`, `revenue_growth`, `daily_change`, `debt_to_equity`, and `total_debt`.
+
+---
+
+#### GET /api/companies/<ticker>
+
+**Purpose:** Return JSON detail for one ticker.
+
+**Response:** Core company fields, computed screening metrics, `latest_report`, and `latest_price`. Unknown tickers return HTTP 404 with an error payload.
+
+---
+
 #### GET /api/market-data/<ticker>
 
 **Purpose:** Return cached ownership, insider transaction, options, earnings calendar, and SEC filing-link data for a ticker. If cached data is missing, the endpoint performs a live provider fetch, persists the payload, and returns it.
@@ -509,6 +539,11 @@ GET /?min_pe_spread_abs=50
 | Payout Ratio | < 30% | 30-60% | > 60% |
 
 ---
+
+### MCP Server
+
+Stock Screener includes a stdio Model Context Protocol server in `mcp_server.py` for clients that need local machine-readable access without starting the Flask HTTP server. It exposes `list_companies` and `get_company` tools plus resources for `stockscreener://docs/api` and `stockscreener://companies`. See `docs/MCP.md` for protocol compatibility details, supported protocol versions, and low-level JSON-RPC examples.
+
 
 ## Financial Calculations
 
