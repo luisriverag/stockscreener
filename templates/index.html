@@ -147,20 +147,29 @@
             height: 60vh;
         }
         
-        .filter-form {
-            display: grid;
-            gap: 1rem;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        .card-title {
+            color: var(--text-primary);
+        }
+
+        .filter-card .card-body {
+            padding: 1rem;
         }
         
-        .filter-form .form-group {
+        .filter-form {
             display: flex;
             flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
         }
         
         .filter-form label {
-            font-size: 0.8rem;
             color: var(--text-secondary);
+            font-size: 0.78rem;
             margin-bottom: 0.25rem;
         }
         
@@ -185,18 +194,23 @@
             color: #6e7681;
         }
 
+        .core-filter-grid {
+            align-items: end;
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: minmax(260px, 1.8fr) repeat(2, minmax(135px, 0.85fr)) minmax(215px, 1fr) auto;
+        }
+
         .compact-checkbox {
+            align-items: center;
             align-self: end;
             background: rgba(13, 17, 23, 0.38);
             border: 1px solid var(--border);
             border-radius: 12px;
-            display: inline-flex !important;
-            flex-direction: row !important;
+            display: inline-flex;
             gap: 0.45rem;
-            grid-column: span 1;
-            justify-content: flex-start;
             min-height: 2.4rem;
-            padding: 0.6rem 0.75rem;
+            padding: 0.55rem 0.75rem;
             width: 100%;
         }
 
@@ -208,6 +222,12 @@
             min-height: 0;
             padding-left: 0;
             white-space: nowrap;
+        }
+
+        .compact-checkbox .form-check-label {
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            margin: 0;
         }
 
         .compact-checkbox .form-check-input {
@@ -228,10 +248,68 @@
         .filter-actions {
             align-items: center;
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 0.5rem;
-            grid-column: 1 / -1;
             justify-content: flex-end;
+            min-height: 2.4rem;
+        }
+
+        .filter-actions .btn {
+            white-space: nowrap;
+        }
+
+        .advanced-filter-panel {
+            background: rgba(13, 17, 23, 0.30);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .advanced-filter-panel summary {
+            align-items: center;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            list-style: none;
+            padding: 0.65rem 0.8rem;
+            user-select: none;
+        }
+
+        .advanced-filter-panel summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .advanced-filter-panel summary::after {
+            color: var(--text-secondary);
+            content: '▾';
+            font-size: 0.9rem;
+            margin-left: 1rem;
+            transition: transform 0.15s ease;
+        }
+
+        .advanced-filter-panel[open] summary::after {
+            transform: rotate(180deg);
+        }
+
+        .advanced-filter-panel summary strong {
+            color: var(--text-primary);
+            display: block;
+            font-size: 0.88rem;
+        }
+
+        .advanced-filter-panel summary span span {
+            color: var(--text-secondary);
+            display: block;
+            font-size: 0.76rem;
+            margin-top: 0.1rem;
+        }
+
+        .advanced-filter-grid {
+            border-top: 1px solid var(--border);
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+            padding: 0.8rem;
         }
 
         .active-filter-bar {
@@ -252,23 +330,24 @@
 
         .filter-help {
             color: var(--text-secondary);
-            font-size: 0.75rem;
+            font-size: 0.73rem;
+            line-height: 1.35;
             margin-top: 0.25rem;
         }
 
         .quick-filter-grid {
             display: grid;
-            gap: 0.75rem;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            margin-bottom: 1rem;
+            gap: 0.65rem;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-bottom: 0.85rem;
         }
 
         .preset-card {
             background: rgba(13, 17, 23, 0.48);
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 12px;
             color: var(--text-primary);
-            padding: 0.85rem;
+            padding: 0.72rem 0.8rem;
             text-decoration: none;
             transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
         }
@@ -282,23 +361,42 @@
 
         .preset-card strong {
             display: block;
-            font-size: 0.95rem;
-            margin-bottom: 0.2rem;
+            font-size: 0.92rem;
+            margin-bottom: 0.15rem;
         }
 
         .preset-card span {
             color: var(--text-secondary);
-            font-size: 0.78rem;
+            font-size: 0.76rem;
+            line-height: 1.35;
         }
 
-        .filter-section-label {
-            color: var(--text-secondary);
-            font-size: 0.75rem;
-            font-weight: 700;
-            grid-column: 1 / -1;
-            letter-spacing: 0.08em;
-            margin-bottom: -0.4rem;
-            text-transform: uppercase;
+        @media (max-width: 1200px) {
+            .core-filter-grid,
+            .quick-filter-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .search-control,
+            .filter-actions {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .core-filter-grid,
+            .quick-filter-grid,
+            .advanced-filter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-actions {
+                justify-content: stretch;
+            }
+
+            .filter-actions .btn {
+                flex: 1 1 auto;
+            }
         }
 
         .results-meta {
@@ -391,12 +489,12 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="card filter-card">
             <div class="card-body">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <div>
                         <h5 class="card-title mb-1">Filter Companies</h5>
-                        <p class="text-secondary mb-0 small">Tune criteria without losing sort state; active constraints are summarized below.</p>
+                        <p class="text-secondary mb-0 small">Tune the main criteria in one row; open Advanced filters only when you need tighter balance sheet or P/E spread controls.</p>
                     </div>
                     {% if companies %}
                     <a href="/export/csv?{{ export_query }}" class="btn btn-sm btn-outline-info">
@@ -427,72 +525,85 @@
                 <form class="filter-form" method="GET" action="/">
                     <input type="hidden" name="sort_by" value="{{ sort_by }}">
                     <input type="hidden" name="order" value="{{ order }}">
-                    <div class="filter-section-label">Core filters</div>
-                    <div class="form-group">
-                        <label for="search">Search</label>
-                        <input type="text" class="form-control" id="search" name="search" 
-                               value="{{ search or '' }}" placeholder="Ticker, name, sector...">
-                    </div>
-                    <div class="form-group">
-                        <label for="max_pe">Max P/E Ratio</label>
-                        <input type="number" class="form-control" id="max_pe" name="max_pe" 
-                               value="{{ max_pe }}" min="0" max="100" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="min_growth">Min Revenue Growth (%)</label>
-                        <input type="number" class="form-control" id="min_growth" name="min_growth" 
-                               value="{{ min_growth }}" min="-100" max="100" step="1">
-                    </div>
-                    <div class="filter-section-label">Balance sheet filters</div>
-                    <div class="form-group">
-                        <label for="max_debt_to_equity">Max Debt/Equity</label>
-                        <input type="number" class="form-control" id="max_debt_to_equity" name="max_debt_to_equity"
-                               value="{{ max_debt_to_equity if max_debt_to_equity is not none else '' }}" min="0" max="1000" step="1" placeholder="No limit">
-                        <span class="filter-help">Lower values usually indicate less leverage risk.</span>
-                    </div>
-                    <div class="form-group">
-                        <label for="max_debt_to_market_cap_pct">Max Debt/Market Cap (%)</label>
-                        <input type="number" class="form-control" id="max_debt_to_market_cap_pct" name="max_debt_to_market_cap_pct"
-                               value="{{ max_debt_to_market_cap_pct if max_debt_to_market_cap_pct is not none else '' }}" min="0" max="1000" step="1" placeholder="No limit">
-                        <span class="filter-help">Compares total debt with market value.</span>
-                    </div>
-                    <div class="filter-section-label">Optional P/E spread filters</div>
-                    <div class="form-group">
-                        <label for="min_pe_spread_abs">Min |Spread| (absolute)</label>
-                        <input type="number" class="form-control" id="min_pe_spread_abs" name="min_pe_spread_abs" 
-                               value="{{ min_pe_spread_abs if min_pe_spread_abs is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Any direction">
-                        <span class="filter-help">Requires a calculated and Yahoo P/E spread.</span>
-                    </div>
-                    <div class="form-group">
-                        <label for="min_pe_spread_pos">Min Positive Spread (Calc &gt; Yahoo)</label>
-                        <input type="number" class="form-control" id="min_pe_spread_pos" name="min_pe_spread_pos" 
-                               value="{{ min_pe_spread_pos if min_pe_spread_pos is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Calc > Yahoo">
-                        <span class="filter-help">Keeps companies where calculated P/E is higher.</span>
-                    </div>
-                    <div class="form-group">
-                        <label for="min_pe_spread_neg">Min Negative Spread (Calc &lt; Yahoo)</label>
-                        <input type="number" class="form-control" id="min_pe_spread_neg" name="min_pe_spread_neg" 
-                               value="{{ min_pe_spread_neg if min_pe_spread_neg is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Calc < Yahoo">
-                        <span class="filter-help">Keeps companies where calculated P/E is lower.</span>
-                    </div>
-                    <div class="form-group compact-checkbox">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="use_calc_pe" name="use_calc_pe" value="true" {% if use_calc_pe %}checked{% endif %}>
-                            <label class="form-check-label" for="use_calc_pe">Use Calculated P/E</label>
+
+                    <div class="core-filter-grid">
+                        <div class="form-group search-control">
+                            <label for="search">Search</label>
+                            <input type="text" class="form-control" id="search" name="search" 
+                                   value="{{ search or '' }}" placeholder="Ticker, name, sector...">
                         </div>
-                        <small class="text-secondary">Price / TTM EPS</small>
+                        <div class="form-group">
+                            <label for="max_pe">Max P/E Ratio</label>
+                            <input type="number" class="form-control" id="max_pe" name="max_pe" 
+                                   value="{{ max_pe }}" min="0" max="100" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="min_growth">Min Growth (%)</label>
+                            <input type="number" class="form-control" id="min_growth" name="min_growth" 
+                                   value="{{ min_growth }}" min="-100" max="100" step="1">
+                        </div>
+                        <div class="compact-checkbox">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="use_calc_pe" name="use_calc_pe" value="true" {% if use_calc_pe %}checked{% endif %}>
+                                <label class="form-check-label" for="use_calc_pe">Use Calculated P/E</label>
+                            </div>
+                            <small class="text-secondary">Price / TTM EPS</small>
+                        </div>
+                        <div class="filter-actions">
+                            <button type="submit" class="btn btn-accent">Apply</button>
+                            <a href="{{ preset_urls['reset'] }}" class="btn btn-outline-secondary">Clear</a>
+                        </div>
                     </div>
-                    <div class="filter-actions">
-                        <button type="submit" class="btn btn-accent">Apply Filters</button>
-                        <a href="{{ preset_urls['reset'] }}" class="btn btn-outline-secondary">Clear all</a>
-                    </div>
+
+                    <details class="advanced-filter-panel" {% if max_debt_to_equity is not none or max_debt_to_market_cap_pct is not none or min_pe_spread_abs is not none or min_pe_spread_pos is not none or min_pe_spread_neg is not none %}open{% endif %}>
+                        <summary>
+                            <span>
+                                <strong>Advanced filters</strong>
+                                <span>Balance sheet limits and optional P/E spread direction</span>
+                            </span>
+                        </summary>
+                        <div class="advanced-filter-grid">
+                            <div class="form-group">
+                                <label for="max_debt_to_equity">Max Debt/Equity</label>
+                                <input type="number" class="form-control" id="max_debt_to_equity" name="max_debt_to_equity"
+                                       value="{{ max_debt_to_equity if max_debt_to_equity is not none else '' }}" min="0" max="1000" step="1" placeholder="No limit">
+                                <span class="filter-help">Lower values usually indicate less leverage risk.</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="max_debt_to_market_cap_pct">Max Debt/Market Cap (%)</label>
+                                <input type="number" class="form-control" id="max_debt_to_market_cap_pct" name="max_debt_to_market_cap_pct"
+                                       value="{{ max_debt_to_market_cap_pct if max_debt_to_market_cap_pct is not none else '' }}" min="0" max="1000" step="1" placeholder="No limit">
+                                <span class="filter-help">Compares total debt with market value.</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="min_pe_spread_abs">Min |Spread|</label>
+                                <input type="number" class="form-control" id="min_pe_spread_abs" name="min_pe_spread_abs" 
+                                       value="{{ min_pe_spread_abs if min_pe_spread_abs is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Any direction">
+                                <span class="filter-help">Requires calculated and Yahoo P/E values.</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="min_pe_spread_pos">Min Positive Spread</label>
+                                <input type="number" class="form-control" id="min_pe_spread_pos" name="min_pe_spread_pos" 
+                                       value="{{ min_pe_spread_pos if min_pe_spread_pos is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Calc > Yahoo">
+                                <span class="filter-help">Keeps companies where calculated P/E is higher.</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="min_pe_spread_neg">Min Negative Spread</label>
+                                <input type="number" class="form-control" id="min_pe_spread_neg" name="min_pe_spread_neg" 
+                                       value="{{ min_pe_spread_neg if min_pe_spread_neg is not none else '' }}" min="0" max="1000" step="0.5" placeholder="Calc < Yahoo">
+                                <span class="filter-help">Keeps companies where calculated P/E is lower.</span>
+                            </div>
+                        </div>
+                    </details>
                 </form>
                 
+                {% if active_filters %}
                 <div class="active-filter-bar mt-3" aria-label="Active filters">
                     {% for filter_label in active_filters %}
                     <span class="filter-chip">{{ filter_label }}</span>
                     {% endfor %}
                 </div>
+                {% endif %}
             </div>
         </div>
 
