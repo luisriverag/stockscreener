@@ -172,14 +172,19 @@ Have an idea? Submit a feature request!
 - [ ] Dark/light theme toggle
 - [ ] Mobile app
 - [ ] Real-time price updates via WebSocket
-- [ ] Company comparison tool (side-by-side)
-- [ ] Technical analysis charts
-- [ ] Insider trading data
-- [ ] Institutional ownership data
-- [ ] Options chain data
-- [ ] SEC filings integration
-- [ ] Earnings calendar
+- [ ] **Comparison workspace**: Select multiple companies and compare valuation, growth, margins, and price performance side by side.
+- [x] Technical analysis charts
+- [x] Insider trading data
+- [x] Institutional ownership data
+- [x] Options chain data
+- [x] SEC filings integration
+- [x] Earnings calendar
 - [ ] Stock screener with more criteria
+- [ ] **Incremental refreshes**: Fetch only new stock-price rows and recently reported quarters instead of reprocessing the full ticker universe
+- [ ] **Data-source fallback**: Add alternate providers for missing Yahoo Finance values and mark source provenance per field.
+- [ ] **Margin charts**: Add gross, operating, and net-margin trends beside revenue and expense charts.
+- [ ] **Background job dashboard**: Show whether the downloader is idle, running, failed, or disabled.
+- [ ] **Automated tests**: Add unit tests for calculations, downloader parsing, route responses, and chart payload shapes.
 
 ---
 

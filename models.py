@@ -85,3 +85,89 @@ class StockPrice(db.Model):
     volume = db.Column(db.BigInteger)
 
     __table_args__ = (db.Index("idx_company_date", "company_id", "date"),)
+
+
+class MarketDataRefresh(db.Model):
+    __tablename__ = "market_data_refreshes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id"), nullable=False, unique=True)
+    last_refreshed_at = db.Column(db.DateTime)
+    source = db.Column(db.String(100))
+    fetch_status = db.Column(db.String(30))
+    error_message = db.Column(db.Text)
+
+
+class InstitutionalHolder(db.Model):
+    __tablename__ = "institutional_holders"
+
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id"), nullable=False, index=True)
+    holder = db.Column(db.String(250))
+    raw_data = db.Column(db.Text)
+    source = db.Column(db.String(100))
+    fetch_status = db.Column(db.String(30))
+    last_refreshed_at = db.Column(db.DateTime)
+
+
+class MajorHolder(db.Model):
+    __tablename__ = "major_holders"
+
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id"), nullable=False, index=True)
+    holder = db.Column(db.String(250))
+    raw_data = db.Column(db.Text)
+    source = db.Column(db.String(100))
+    fetch_status = db.Column(db.String(30))
+    last_refreshed_at = db.Column(db.DateTime)
+
+
+class InsiderTransaction(db.Model):
+    __tablename__ = "insider_transactions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id"), nullable=False, index=True)
+    insider = db.Column(db.String(250))
+    transaction_date = db.Column(db.String(80))
+    raw_data = db.Column(db.Text)
+    source = db.Column(db.String(100))
+    fetch_status = db.Column(db.String(30))
+    last_refreshed_at = db.Column(db.DateTime)
+
+
+class OptionContract(db.Model):
+    __tablename__ = "option_contracts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id"), nullable=False, index=True)
+    expiration = db.Column(db.String(40))
+    option_type = db.Column(db.String(10))
+    contract_symbol = db.Column(db.String(120))
+    raw_data = db.Column(db.Text)
+    source = db.Column(db.String(100))
+    fetch_status = db.Column(db.String(30))
+    last_refreshed_at = db.Column(db.DateTime)
+
+
+class EarningsEvent(db.Model):
+    __tablename__ = "earnings_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id"), nullable=False, index=True)
+    event = db.Column(db.String(250))
+    raw_data = db.Column(db.Text)
+    source = db.Column(db.String(100))
+    fetch_status = db.Column(db.String(30))
+    last_refreshed_at = db.Column(db.DateTime)
+
+
+class SecFilingLink(db.Model):
+    __tablename__ = "sec_filing_links"
+
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id"), nullable=False, index=True)
+    label = db.Column(db.String(120))
+    url = db.Column(db.String(500))
+    source = db.Column(db.String(100))
+    fetch_status = db.Column(db.String(30))
+    last_refreshed_at = db.Column(db.DateTime)

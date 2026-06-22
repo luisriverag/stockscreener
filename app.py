@@ -1,12 +1,24 @@
 import os
 import csv
 import io
+import atexit
+import signal
+import subprocess
+import sys
+import threading
+import time
 from flask import Flask, render_template, jsonify, request, make_response
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import db, Company, FinancialReport, StockPrice
 import plotly.graph_objs as go
 import json
+from market_data import (
+    fetch_market_data,
+    has_market_data,
+    load_market_data,
+    persist_market_data,
+)
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///stocks.db"
@@ -16,6 +28,141 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all()
+
+
+def quarter_end_date(year, quarter):
+    """Return an approximate quarter-end date string for chart time axes."""
+    quarter_month_days = {1: "03-31", 2: "06-30", 3: "09-30", 4: "12-31"}
+    return f"{year}-{quarter_month_days.get(quarter, '12-31')}"
+
+
+DOWNLOADER_INTERVAL_SECONDS = int(
+    os.environ.get("STOCKSCREENER_DOWNLOAD_INTERVAL_SECONDS", 6 * 60 * 60)
+)
+DOWNLOADER_INITIAL_DELAY_SECONDS = int(
+    os.environ.get("STOCKSCREENER_DOWNLOAD_INITIAL_DELAY_SECONDS", 60)
+)
+_downloader_started = False
+_downloader_start_lock = threading.Lock()
+_downloader_stop_event = threading.Event()
+_downloader_process = None
+_downloader_process_lock = threading.Lock()
+
+
+def terminate_downloader_process(timeout=10):
+    """Terminate any active downloader subprocess before the web app exits."""
+    global _downloader_process
+
+    with _downloader_process_lock:
+        process = _downloader_process
+
+    if not process or process.poll() is not None:
+        return
+
+    app.logger.info("Stopping active stock data downloader process")
+    try:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGTERM)
+        else:
+            process.terminate()
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        app.logger.warning("Downloader did not stop in time; killing it")
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        else:
+            process.kill()
+        process.wait(timeout=timeout)
+    except ProcessLookupError:
+        pass
+    finally:
+        with _downloader_process_lock:
+            if _downloader_process is process:
+                _downloader_process = None
+
+
+def shutdown_background_downloader():
+    """Signal the downloader loop and child process to stop."""
+    _downloader_stop_event.set()
+    terminate_downloader_process()
+
+
+def run_downloader_once():
+    """Run the data downloader in a separate process so web requests stay responsive."""
+    global _downloader_process
+
+    if _downloader_stop_event.is_set():
+        return
+
+    downloader_path = os.path.join(os.path.dirname(__file__), "download_data.py")
+    popen_kwargs = {
+        "cwd": os.path.dirname(__file__),
+    }
+    if os.name == "posix":
+        popen_kwargs["start_new_session"] = True
+
+    process = subprocess.Popen([sys.executable, downloader_path], **popen_kwargs)
+    with _downloader_process_lock:
+        _downloader_process = process
+
+    while process.poll() is None:
+        if _downloader_stop_event.wait(0.5):
+            terminate_downloader_process()
+            return
+
+    with _downloader_process_lock:
+        if _downloader_process is process:
+            _downloader_process = None
+
+    if process.returncode != 0 and not _downloader_stop_event.is_set():
+        app.logger.warning("Downloader exited with status %s", process.returncode)
+
+
+def downloader_loop():
+    """Periodically refresh stock data until the app process exits."""
+    if DOWNLOADER_INITIAL_DELAY_SECONDS > 0:
+        if _downloader_stop_event.wait(DOWNLOADER_INITIAL_DELAY_SECONDS):
+            return
+
+    while not _downloader_stop_event.is_set():
+        try:
+            app.logger.info("Starting scheduled stock data download")
+            run_downloader_once()
+        except Exception:
+            if not _downloader_stop_event.is_set():
+                app.logger.exception("Scheduled stock data download failed")
+
+        _downloader_stop_event.wait(DOWNLOADER_INTERVAL_SECONDS)
+
+
+def start_background_downloader():
+    """Start the periodic downloader once per app process."""
+    global _downloader_started
+
+    if os.environ.get("STOCKSCREENER_DISABLE_BACKGROUND_DOWNLOADER") == "true":
+        return
+
+    with _downloader_start_lock:
+        if _downloader_started:
+            return
+
+        thread = threading.Thread(
+            target=downloader_loop,
+            name="stock-data-downloader",
+            daemon=True,
+        )
+        thread.start()
+        atexit.register(shutdown_background_downloader)
+        _downloader_started = True
+        app.logger.info(
+            "Scheduled stock data downloader every %s seconds",
+            DOWNLOADER_INTERVAL_SECONDS,
+        )
+
+
+@app.before_request
+def ensure_background_downloader_started():
+    start_background_downloader()
 
 
 def calculate_pe(company):
@@ -180,7 +327,7 @@ def ticker_page(company_id):
 
     reports = (
         FinancialReport.query.filter_by(company_id=company_id)
-        .order_by(FinancialReport.year.desc(), FinancialReport.quarter.desc())
+        .order_by(FinancialReport.year, FinancialReport.quarter)
         .all()
     )
 
@@ -205,6 +352,7 @@ def ticker_page(company_id):
         report_data.append(
             {
                 "period": f"{r.year} Q{r.quarter}",
+                "date": quarter_end_date(r.year, r.quarter),
                 "revenue": r.revenue / 1e9 if r.revenue else 0,
                 "opex": r.opex / 1e9 if r.opex else 0,
                 "capex": r.capex / 1e9 if r.capex else 0,
@@ -216,12 +364,12 @@ def ticker_page(company_id):
         {"date": str(p.date), "close": p.close, "volume": p.volume} for p in prices
     ]
 
-    latest_report = reports[0] if reports else None
+    latest_report = reports[-1] if reports else None
     calc_pe = calculate_pe(company)
 
     eps_ttm = None
     if reports:
-        total_ni = sum(r.net_income for r in reports[:4] if r.net_income)
+        total_ni = sum(r.net_income for r in reports[-4:] if r.net_income)
         if total_ni:
             eps_ttm = total_ni / 1e9
 
@@ -337,6 +485,7 @@ def chart(company_id):
         report_data.append(
             {
                 "period": f"{r.year} Q{r.quarter}",
+                "date": quarter_end_date(r.year, r.quarter),
                 "revenue": r.revenue / 1e9 if r.revenue else 0,
                 "opex": r.opex / 1e9 if r.opex else 0,
                 "capex": r.capex / 1e9 if r.capex else 0,
@@ -590,6 +739,42 @@ def risks(ticker):
         return jsonify({"risks": [], "error": str(e)})
 
 
+
+
+
+@app.route("/api/market-data/<ticker>")
+def market_data(ticker):
+    company = Company.query.filter_by(ticker=ticker.upper()).first()
+    if not company:
+        company = Company.query.filter_by(ticker=ticker).first()
+
+    try:
+        if company and has_market_data(company, db.session):
+            return jsonify(load_market_data(company, db.session))
+
+        payload = fetch_market_data(ticker)
+        if company:
+            persist_market_data(company, db.session, payload, status="success")
+            db.session.commit()
+            payload = load_market_data(company, db.session)
+            payload["metadata"]["from_database"] = False
+        else:
+            payload["metadata"]["from_database"] = False
+
+        return jsonify(payload)
+    except Exception as e:
+        if company:
+            persist_market_data(
+                company,
+                db.session,
+                {},
+                status="failed",
+                error_message=str(e),
+            )
+            db.session.commit()
+            return jsonify(load_market_data(company, db.session))
+        return jsonify({"error": str(e)})
+
 @app.route("/all")
 def all_companies():
     page = request.args.get("page", 1, type=int)
@@ -829,4 +1014,8 @@ def export_csv():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    try:
+        start_background_downloader()
+        app.run(debug=True, host="0.0.0.0", port=5000, use_reloader=False)
+    finally:
+        shutdown_background_downloader()

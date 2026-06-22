@@ -18,7 +18,9 @@ A comprehensive Flask-based web application for analyzing publicly traded compan
 - [Understanding P/E Metrics](#understanding-p/e-metrics)
 - [Troubleshooting](#troubleshooting)
 - [Technology Stack](#technology-stack)
+- [Testing](#testing)
 - [License](#license)
+- [Additional Documentation](#additional-documentation)
 
 ---
 
@@ -174,15 +176,20 @@ http://localhost:5000/?min_pe_spread_abs=50
 ├── app.py                  # Flask application - all routes and business logic
 ├── download_data.py        # Data download script - fetches from Yahoo Finance
 ├── models.py              # SQLAlchemy ORM models - database schema
+├── market_data.py         # Market-data fetch/persist/load helpers
 ├── requirements.txt       # Python dependencies
 ├── README.md              # This file
-├── SPEC.md                # Technical specification document
+├── docs/                  # Project planning and technical documentation
+│   ├── SPEC.md            # Technical specification document
+│   ├── ROADMAP.md         # Planned enhancements
+│   └── IDEAS.md           # Suggested improvements
 ├── stocks.db              # SQLite database (created at runtime)
 ├── .gitignore             # Git ignore patterns
 ├── templates/
 │   ├── index.html        # Homepage - filter form and results table
 │   ├── ticker.html       # Company detail page - 6 tabs
 │   └── all.html          # All companies list page
+├── tests/                # Regression tests
 └── venv/                 # Python virtual environment
 ```
 
@@ -269,6 +276,11 @@ CREATE INDEX idx_company_date ON stock_prices(company_id, date);
 - **Description:** Risk metrics with Low/Medium/High ratings
 - **Response:** JSON array of risk metrics
 
+### Market Data API
+- **Route:** `GET /api/market-data/<ticker>`
+- **Description:** Cached market-data payload for ownership, insider transactions, options, earnings calendar, and SEC filing links. Falls back to a live fetch when cached data is missing.
+- **Persistence:** Data is stored in dedicated tables and refreshed by `download_data.py` during scheduled background downloads.
+
 ---
 
 ## Financial Calculations
@@ -323,7 +335,12 @@ daily_change = ((latest_close - previous_close) / previous_close) * 100
 
 #### Tab: Stock Price
 - 1-year price history
+- 20-day and 50-day simple moving average overlays
 - Area fill for visual appeal
+
+#### Tab: Market Data
+- Cached ownership, insider transaction, options, earnings calendar, and SEC filing data
+- Displays source, fetch status, and last refresh metadata
 
 #### Tab: Combined
 - Dual-axis chart
@@ -473,6 +490,24 @@ The application uses a dark theme inspired by GitHub's design:
 - Cards: `#161b22`
 - Borders: `#30363d`
 - Text: `#e6edf3`
+
+---
+
+## Testing
+
+```bash
+python -m pytest
+```
+
+The test suite currently includes static regression checks for market-data persistence models, downloader refresh wiring, API cache-first behavior, and helper coverage.
+
+---
+
+## Additional Documentation
+
+- [Technical specification](docs/SPEC.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Improvement ideas](docs/IDEAS.md)
 
 ---
 

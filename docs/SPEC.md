@@ -358,6 +358,16 @@ GET /?min_pe_spread_abs=50
 
 ---
 
+#### GET /api/market-data/<ticker>
+
+**Purpose:** Return cached ownership, insider transaction, options, earnings calendar, and SEC filing-link data for a ticker. If cached data is missing, the endpoint performs a live provider fetch, persists the payload, and returns it.
+
+**Persistence:** Market-data rows are stored in dedicated tables (`institutional_holders`, `major_holders`, `insider_transactions`, `option_contracts`, `earnings_events`, `sec_filing_links`) with refresh metadata in `market_data_refreshes`.
+
+**Freshness Metadata:** Responses include `source`, `fetch_status`, `last_refreshed_at`, `error_message`, and `from_database` fields.
+
+---
+
 #### GET /ticker/<company_id>
 
 **Purpose:** Detailed company analysis page
@@ -888,10 +898,11 @@ The application uses the `yfinance` Python library to fetch data from Yahoo Fina
 /home/coder/Projects/
 ├── app.py                    # Flask application (main entry point)
 ├── download_data.py          # Data download script
+├── market_data.py            # Market-data fetch/persist/load helpers
 ├── models.py                 # SQLAlchemy database models
 ├── requirements.txt          # Python dependencies
 ├── README.md                 # User documentation
-├── SPEC.md                   # Technical specifications
+├── docs/SPEC.md              # Technical specifications
 ├── stocks.db                 # SQLite database (runtime)
 ├── .gitignore                # Git ignore rules
 ├── templates/
