@@ -43,6 +43,40 @@
         
         .positive { color: var(--positive); }
         .negative { color: var(--negative); }
+
+        .table {
+            --bs-table-bg: var(--bg-card);
+            --bs-table-color: var(--text-primary);
+            --bs-table-border-color: var(--border);
+            --bs-table-hover-bg: rgba(88, 166, 255, 0.08);
+            --bs-table-hover-color: var(--text-primary);
+        }
+
+        .table thead th {
+            background: rgba(13, 17, 23, 0.96);
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+
+        .table td, .table th {
+            border-color: var(--border);
+        }
+
+        .alert, .alert-secondary, .alert-info, .alert-warning {
+            background: rgba(13, 17, 23, 0.82);
+            border-color: var(--border);
+            color: var(--text-primary);
+        }
+
+        .badge.bg-secondary {
+            background-color: #30363d !important;
+            color: var(--text-primary);
+        }
+
+        .badge.bg-warning {
+            background-color: #9e6a03 !important;
+            color: var(--text-primary) !important;
+        }
         
         .stat-value {
             font-size: 1.5rem;
@@ -93,7 +127,25 @@
         }
         
         #financialChart, #priceChart, #combinedChart {
-            height: 350px;
+            height: 460px;
+        }
+
+        .chart-card {
+            background: linear-gradient(180deg, rgba(88, 166, 255, 0.06), rgba(22, 27, 34, 0));
+        }
+
+        .chart-title-row {
+            align-items: center;
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .chart-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin: 0;
         }
         
         .btn-accent {
@@ -225,6 +277,11 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="market-data-tab" data-bs-toggle="tab" data-bs-target="#market-data" type="button" onclick="loadMarketData('{{ summary.ticker }}')">
+                    🧭 Market Data
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="competitors-tab" data-bs-toggle="tab" data-bs-target="#competitors" type="button">
                     🏢 Competitors
                 </button>
@@ -234,9 +291,14 @@
         <div class="tab-content" id="myTabContent">
             <!-- Financials Tab -->
             <div class="tab-pane fade show active" id="financials">
-                <div class="card">
+                <div class="card chart-card">
                     <div class="card-body">
-                        <h6 class="card-title mb-3">Revenue, OPEX, CAPEX over Time</h6>
+                        <div class="chart-title-row">
+                            <div>
+                                <h6 class="card-title mb-1">Quarterly Financial Performance</h6>
+                                <p class="chart-subtitle">Revenue, operating expenses, capital expenditures, and net income in chronological order.</p>
+                            </div>
+                        </div>
                         <div id="financialChart"></div>
                     </div>
                 </div>
@@ -268,8 +330,6 @@
                                 </tbody>
                             </table>
                             <small class="text-secondary">*CAPEX is capital expenditure (investment in assets). Negative values indicate cash outflow.</small>
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
@@ -277,9 +337,14 @@
 
             <!-- Price Tab -->
             <div class="tab-pane fade" id="price">
-                <div class="card">
+                <div class="card chart-card">
                     <div class="card-body">
-                        <h6 class="card-title mb-3">Stock Price History (1 Year)</h6>
+                        <div class="chart-title-row">
+                            <div>
+                                <h6 class="card-title mb-1">Stock Price History (1 Year)</h6>
+                                <p class="chart-subtitle">Interactive close-price trend with volume, range slider, and unified hover details.</p>
+                            </div>
+                        </div>
                         <div id="priceChart"></div>
                     </div>
                 </div>
@@ -287,9 +352,14 @@
 
             <!-- Combined Chart Tab -->
             <div class="tab-pane fade" id="combined">
-                <div class="card">
+                <div class="card chart-card">
                     <div class="card-body">
-                        <h6 class="card-title mb-3">Financials + Stock Price (Dual Axis)</h6>
+                        <div class="chart-title-row">
+                            <div>
+                                <h6 class="card-title mb-1">Financials + Stock Price (Dual Axis)</h6>
+                                <p class="chart-subtitle">Compare quarterly operating trends against the latest year of market performance.</p>
+                            </div>
+                        </div>
                         <div id="combinedChart"></div>
                     </div>
                 </div>
@@ -322,6 +392,18 @@
                         <h6 class="card-title mb-3">⚠️ Risk Analysis (from 10K/Financial Data)</h6>
                         <div id="risksContainer">
                             <p class="text-secondary">Click on Risk Analysis tab to load...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Market Data Tab -->
+            <div class="tab-pane fade" id="market-data">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">Options, Ownership, SEC Filings, and Earnings</h6>
+                        <div id="marketDataContainer">
+                            <p class="text-secondary">Click on Market Data tab to load options, ownership, SEC filings, and earnings calendar data...</p>
                         </div>
                     </div>
                 </div>
@@ -391,21 +473,72 @@
         const reportsData = {{ reports | tojson }};
         const pricesData = {{ prices | tojson }};
         
+        const chartColors = {
+            revenue: '#58a6ff',
+            opex: '#f85149',
+            capex: '#f0883e',
+            netIncome: '#3fb950',
+            price: '#a5d6ff',
+            volume: '#8b949e',
+            grid: '#30363d',
+            text: '#e6edf3',
+            muted: '#8b949e'
+        };
+
+        const baseLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: chartColors.text, family: 'Segoe UI, system-ui, sans-serif' },
+            hovermode: 'x unified',
+            hoverlabel: { bgcolor: '#161b22', bordercolor: chartColors.grid, font: { color: chartColors.text } },
+            legend: { orientation: 'h', x: 0, y: 1.12, bgcolor: 'rgba(0,0,0,0)' },
+            margin: { t: 58, r: 28, b: 54, l: 64 }
+        };
+
+        const plotConfig = {
+            responsive: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+        };
+
+        function moneyHover(label, unit = 'B') {
+            return `<b>${label}</b><br>%{customdata}<br>$%{y:.2f}${unit}<extra></extra>`;
+        }
+
+        function dateMoneyHover(label, unit = 'B') {
+            return `<b>${label}</b><br>%{customdata}<br>$%{y:.2f}${unit}<extra></extra>`;
+        }
+
+        function movingAverage(values, windowSize) {
+            return values.map((_, index) => {
+                if (index + 1 < windowSize) {
+                    return null;
+                }
+                const windowValues = values.slice(index + 1 - windowSize, index + 1);
+                const sum = windowValues.reduce((total, value) => total + value, 0);
+                return sum / windowSize;
+            });
+        }
+
         // Financial Chart
         if (reportsData.length > 0) {
             const periods = reportsData.map(r => r.period);
             const revenues = reportsData.map(r => r.revenue);
             const opex = reportsData.map(r => r.opex);
             const capex = reportsData.map(r => r.capex ? Math.abs(r.capex) : 0);
-            
+            const netIncome = reportsData.map(r => r.net_income);
+            const barWidth = Math.max(0.22, Math.min(0.6, 5 / Math.max(periods.length, 1)));
+
             Plotly.newPlot('financialChart', [
                 {
                     x: periods,
                     y: revenues,
-                    type: 'scatter',
-                    mode: 'lines+markers',
+                    type: 'bar',
                     name: 'Revenue ($B)',
-                    line: { color: '#58a6ff', width: 2 }
+                    marker: { color: 'rgba(88, 166, 255, 0.72)' },
+                    width: barWidth,
+                    customdata: periods,
+                    hovertemplate: moneyHover('Revenue')
                 },
                 {
                     x: periods,
@@ -413,7 +546,10 @@
                     type: 'scatter',
                     mode: 'lines+markers',
                     name: 'OPEX ($B)',
-                    line: { color: '#f85149', width: 2 }
+                    line: { color: chartColors.opex, width: 3, shape: 'spline' },
+                    marker: { size: 7 },
+                    customdata: periods,
+                    hovertemplate: moneyHover('OPEX')
                 },
                 {
                     x: periods,
@@ -421,22 +557,41 @@
                     type: 'scatter',
                     mode: 'lines+markers',
                     name: 'CAPEX ($B)',
-                    line: { color: '#f0883e', width: 2 }
+                    line: { color: chartColors.capex, width: 3, shape: 'spline' },
+                    marker: { size: 7 },
+                    customdata: periods,
+                    hovertemplate: moneyHover('CAPEX')
+                },
+                {
+                    x: periods,
+                    y: netIncome,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Net Income ($B)',
+                    line: { color: chartColors.netIncome, width: 3, shape: 'spline' },
+                    marker: { size: 8, symbol: 'diamond' },
+                    customdata: periods,
+                    hovertemplate: moneyHover('Net Income')
                 }
             ], {
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                font: { color: '#e6edf3' },
-                xaxis: { gridcolor: '#30363d' },
-                yaxis: { title: 'Amount ($B)', gridcolor: '#30363d' },
-                margin: { t: 20, r: 20, b: 40, l: 60 }
-            }, { responsive: true });
+                ...baseLayout,
+                barmode: 'group',
+                xaxis: { gridcolor: chartColors.grid, tickangle: -30, title: 'Quarter' },
+                yaxis: { title: 'Amount ($B)', gridcolor: chartColors.grid, zerolinecolor: chartColors.muted },
+                margin: { ...baseLayout.margin, b: 86 }
+            }, plotConfig);
         }
         
         // Price Chart
         if (pricesData.length > 0) {
             const dates = pricesData.map(p => p.date);
             const closes = pricesData.map(p => p.close);
+            const volumes = pricesData.map(p => p.volume || 0);
+            const firstClose = closes[0] || 0;
+            const lastClose = closes[closes.length - 1] || 0;
+            const priceColor = lastClose >= firstClose ? chartColors.netIncome : chartColors.opex;
+            const sma20 = movingAverage(closes, 20);
+            const sma50 = movingAverage(closes, 50);
             
             Plotly.newPlot('priceChart', [
                 {
@@ -444,90 +599,214 @@
                     y: closes,
                     type: 'scatter',
                     mode: 'lines',
-                    name: 'Stock Price ($)',
-                    line: { color: '#3fb950', width: 2 },
+                    name: 'Close ($)',
+                    line: { color: priceColor, width: 3 },
                     fill: 'tozeroy',
-                    fillcolor: 'rgba(63, 185, 80, 0.1)'
+                    fillcolor: lastClose >= firstClose ? 'rgba(63, 185, 80, 0.12)' : 'rgba(248, 81, 73, 0.12)',
+                    hovertemplate: '<b>Close</b><br>%{x}<br>$%{y:.2f}<extra></extra>'
+                },
+                {
+                    x: dates,
+                    y: sma20,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: '20D SMA',
+                    line: { color: '#f2cc60', width: 2 },
+                    hovertemplate: '<b>20D SMA</b><br>%{x}<br>$%{y:.2f}<extra></extra>'
+                },
+                {
+                    x: dates,
+                    y: sma50,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: '50D SMA',
+                    line: { color: '#d2a8ff', width: 2 },
+                    hovertemplate: '<b>50D SMA</b><br>%{x}<br>$%{y:.2f}<extra></extra>'
+                },
+                {
+                    x: dates,
+                    y: volumes,
+                    type: 'bar',
+                    name: 'Volume',
+                    yaxis: 'y2',
+                    marker: { color: 'rgba(139, 148, 158, 0.28)' },
+                    hovertemplate: '<b>Volume</b><br>%{x}<br>%{y:,}<extra></extra>'
                 }
             ], {
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                font: { color: '#e6edf3' },
-                xaxis: { title: 'Date', gridcolor: '#30363d' },
-                yaxis: { title: 'Price ($)', gridcolor: '#30363d' },
-                margin: { t: 20, r: 20, b: 40, l: 60 }
-            }, { responsive: true });
+                ...baseLayout,
+                xaxis: {
+                    title: 'Date',
+                    gridcolor: chartColors.grid,
+                    rangeslider: { visible: true, bgcolor: '#0d1117', bordercolor: chartColors.grid },
+                    rangeselector: {
+                        bgcolor: '#161b22',
+                        activecolor: '#58a6ff',
+                        font: { color: chartColors.text },
+                        buttons: [
+                            { count: 1, label: '1M', step: 'month', stepmode: 'backward' },
+                            { count: 3, label: '3M', step: 'month', stepmode: 'backward' },
+                            { count: 6, label: '6M', step: 'month', stepmode: 'backward' },
+                            { step: 'all', label: '1Y' }
+                        ]
+                    }
+                },
+                yaxis: { title: 'Price ($)', gridcolor: chartColors.grid, tickprefix: '$' },
+                yaxis2: { title: 'Volume', overlaying: 'y', side: 'right', showgrid: false, color: chartColors.muted },
+                margin: { ...baseLayout.margin, b: 86, r: 74 }
+            }, plotConfig);
         }
         
         // Combined Chart (Financials + Price on dual axis)
         if (reportsData.length > 0 && pricesData.length > 0) {
             const periods = reportsData.map(r => r.period);
+            const reportDates = reportsData.map(r => r.date);
             const revenues = reportsData.map(r => r.revenue);
             const opex = reportsData.map(r => r.opex);
             const capex = reportsData.map(r => r.capex ? Math.abs(r.capex) : 0);
-            
+            const netIncome = reportsData.map(r => r.net_income);
             const priceDates = pricesData.map(p => p.date);
             const priceCloses = pricesData.map(p => p.close);
+            const quarterBarWidthMs = 52 * 24 * 60 * 60 * 1000;
             
             Plotly.newPlot('combinedChart', [
                 {
-                    x: periods,
+                    x: reportDates,
                     y: revenues,
-                    type: 'scatter',
-                    mode: 'lines+markers',
+                    customdata: periods,
+                    type: 'bar',
                     name: 'Revenue ($B)',
-                    line: { color: '#58a6ff', width: 2 }
+                    width: quarterBarWidthMs,
+                    marker: { color: 'rgba(88, 166, 255, 0.72)' },
+                    hovertemplate: dateMoneyHover('Revenue')
                 },
                 {
-                    x: periods,
+                    x: reportDates,
                     y: opex,
+                    customdata: periods,
                     type: 'scatter',
                     mode: 'lines+markers',
                     name: 'OPEX ($B)',
-                    line: { color: '#f85149', width: 2 }
+                    line: { color: chartColors.opex, width: 3, shape: 'spline' },
+                    marker: { size: 7 },
+                    hovertemplate: dateMoneyHover('OPEX')
                 },
                 {
-                    x: periods,
+                    x: reportDates,
                     y: capex,
+                    customdata: periods,
                     type: 'scatter',
                     mode: 'lines+markers',
                     name: 'CAPEX ($B)',
-                    line: { color: '#f0883e', width: 2 }
+                    line: { color: chartColors.capex, width: 3, shape: 'spline' },
+                    marker: { size: 7 },
+                    hovertemplate: dateMoneyHover('CAPEX')
                 },
                 {
-                    x: priceDates,
-                    y: priceCloses,
+                    x: reportDates,
+                    y: netIncome,
+                    customdata: periods,
                     type: 'scatter',
-                    mode: 'lines',
-                    name: 'Stock Price ($)',
-                    yaxis: 'y2',
-                    line: { color: '#3fb950', width: 2, dash: 'dot' }
-                }
+                    mode: 'lines+markers',
+                    name: 'Net Income ($B)',
+                    line: { color: chartColors.netIncome, width: 3, shape: 'spline' },
+                    marker: { size: 8, symbol: 'diamond' },
+                    hovertemplate: dateMoneyHover('Net Income')
+                },
+                { x: priceDates, y: priceCloses, type: 'scatter', mode: 'lines', name: 'Stock Price ($)', yaxis: 'y2', line: { color: chartColors.price, width: 3 }, hovertemplate: '<b>Price</b><br>%{x}<br>$%{y:.2f}<extra></extra>' }
             ], {
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                font: { color: '#e6edf3' },
-                xaxis: { title: 'Period', gridcolor: '#30363d' },
-                yaxis: { 
-                    title: 'Financial Metrics ($B)', 
-                    gridcolor: '#30363d',
-                    side: 'left'
+                ...baseLayout,
+                barmode: 'overlay',
+                xaxis: {
+                    title: 'Date',
+                    gridcolor: chartColors.grid,
+                    tickformat: '%b %Y',
+                    tickangle: -30
                 },
-                yaxis2: {
-                    title: 'Stock Price ($)',
-                    overlaying: 'y',
-                    side: 'right',
-                    gridcolor: '#30363d'
-                },
-                legend: {
-                    x: 0,
-                    y: 1.2,
-                    orientation: 'h'
-                },
-                margin: { t: 80, r: 60, b: 60, l: 60 }
-            }, { responsive: true });
+                yaxis: { title: 'Financial Metrics ($B)', gridcolor: chartColors.grid },
+                yaxis2: { title: 'Stock Price ($)', overlaying: 'y', side: 'right', showgrid: false, tickprefix: '$' },
+                margin: { ...baseLayout.margin, b: 86, r: 76 }
+            }, plotConfig);
         }
         
+        function renderRowsTable(rows, title) {
+            if (!rows || rows.length === 0) {
+                return `<div class="mb-3"><h6>${title}</h6><p class="text-secondary small">No data available.</p></div>`;
+            }
+            const columns = Object.keys(rows[0]).slice(0, 6);
+            const headers = columns.map(column => `<th>${column}</th>`).join('');
+            const body = rows.map(row => `
+                <tr>${columns.map(column => `<td><small>${row[column] ?? '-'}</small></td>`).join('')}</tr>
+            `).join('');
+            return `
+                <div class="mb-4">
+                    <h6>${title}</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead><tr>${headers}</tr></thead>
+                            <tbody>${body}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSecLinks(links) {
+            if (!links || links.length === 0) {
+                return '<p class="text-secondary small">No SEC links available.</p>';
+            }
+            return links.map(link => `<a class="btn btn-sm btn-outline-info me-2 mb-2" href="${link.url}" target="_blank">${link.label}</a>`).join('');
+        }
+
+        function renderOptions(options) {
+            if (!options || !options.expiration) {
+                return '<p class="text-secondary small">No options chain data available.</p>';
+            }
+            return `
+                <div class="mb-4">
+                    <h6>Options Chain <small class="text-secondary">Expiration ${options.expiration}</small></h6>
+                    <p class="text-secondary small">Showing the first available expiration. Additional expirations: ${(options.available_expirations || []).join(', ')}</p>
+                    <div class="row">
+                        <div class="col-lg-6">${renderRowsTable(options.calls, 'Calls')}</div>
+                        <div class="col-lg-6">${renderRowsTable(options.puts, 'Puts')}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadMarketData(ticker) {
+            const container = document.getElementById('marketDataContainer');
+            container.innerHTML = '<p class="text-secondary">Loading market data...</p>';
+
+            try {
+                const response = await fetch(`/api/market-data/${ticker}`);
+                const data = await response.json();
+                if (data.error) {
+                    container.innerHTML = `<p class="text-danger">Error loading market data: ${data.error}</p>`;
+                    return;
+                }
+
+                const ownership = data.ownership || {};
+                const metadata = data.metadata || {};
+                const freshness = metadata.last_refreshed_at ? `Last refreshed: ${metadata.last_refreshed_at}` : 'Freshness unknown';
+                container.innerHTML = `
+                    <div class="alert alert-secondary py-2 small">
+                        ${freshness} · Source: ${metadata.source || 'Live provider'} · Status: ${metadata.fetch_status || 'live'}
+                    </div>
+                    <div class="mb-4">
+                        <h6>SEC Filings</h6>
+                        ${renderSecLinks(data.sec_filings)}
+                    </div>
+                    ${renderRowsTable(data.earnings_calendar, 'Earnings Calendar')}
+                    ${renderOptions(data.options)}
+                    ${renderRowsTable(ownership.institutional_holders, 'Institutional Ownership')}
+                    ${renderRowsTable(ownership.major_holders, 'Major Holders')}
+                    ${renderRowsTable(ownership.insider_transactions, 'Insider Transactions')}
+                `;
+            } catch (error) {
+                container.innerHTML = `<p class="text-danger">Error loading market data: ${error.message}</p>`;
+            }
+        }
+
         // Load News
         async function loadNews(ticker) {
             const container = document.getElementById('newsContainer');

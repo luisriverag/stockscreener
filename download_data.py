@@ -11,6 +11,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///stocks.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 from models import db, Company, FinancialReport, StockPrice
+from market_data import fetch_market_data, persist_market_data
 
 db.init_app(app)
 
@@ -1165,6 +1166,21 @@ def download_company_data(ticker, session):
                             session.add(existing)
 
             session.commit()
+
+        try:
+            market_payload = fetch_market_data(ticker)
+            persist_market_data(company, session, market_payload, status="success")
+            session.commit()
+        except Exception as market_error:
+            persist_market_data(
+                company,
+                session,
+                {},
+                status="failed",
+                error_message=str(market_error),
+            )
+            session.commit()
+            print(f"Error downloading market data for {ticker}: {market_error}")
 
         return True
     except Exception as e:

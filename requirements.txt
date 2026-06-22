@@ -3,3 +3,5 @@ sqlalchemy
 yfinance
 plotly
 pandas
+Flask-SQLAlchemy
+pytest
