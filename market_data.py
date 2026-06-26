@@ -1,4 +1,5 @@
 import json
+import math
 from datetime import datetime
 
 from models import (
@@ -15,6 +16,8 @@ from models import (
 def json_default(value):
     if hasattr(value, "isoformat"):
         return value.isoformat()
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return None
     return str(value)
 
 
@@ -30,6 +33,8 @@ def dataframe_records(frame, max_rows=10):
         for key, value in row.items():
             if hasattr(value, "isoformat"):
                 value = value.isoformat()
+            elif isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+                value = None
             elif value is not None:
                 value = str(value) if not isinstance(value, (int, float, bool)) else value
             cleaned_row[str(key)] = value
@@ -213,9 +218,21 @@ def persist_market_data(company, session, payload, status="success", error_messa
     refresh.error_message = error_message
 
 
+def sanitize_value(value):
+    """Recursively replace NaN/Inf with None in JSON-safe data."""
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return None
+    if isinstance(value, dict):
+        return {k: sanitize_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [sanitize_value(v) for v in value]
+    return value
+
+
 def parse_raw(row):
     try:
-        return json.loads(row.raw_data) if row.raw_data else {}
+        data = json.loads(row.raw_data) if row.raw_data else {}
+        return sanitize_value(data)
     except json.JSONDecodeError:
         return {}
 

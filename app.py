@@ -19,6 +19,7 @@ from market_data import (
     has_market_data,
     load_market_data,
     persist_market_data,
+    sanitize_value,
 )
 
 app = Flask(__name__)
@@ -1271,7 +1272,7 @@ def market_data(ticker):
 
     try:
         if company and has_market_data(company, db.session):
-            return jsonify(load_market_data(company, db.session))
+            return jsonify(sanitize_value(load_market_data(company, db.session)))
 
         payload = fetch_market_data(ticker)
         if company:
@@ -1282,7 +1283,7 @@ def market_data(ticker):
         else:
             payload["metadata"]["from_database"] = False
 
-        return jsonify(payload)
+        return jsonify(sanitize_value(payload))
     except Exception as e:
         if company:
             persist_market_data(
@@ -1293,7 +1294,7 @@ def market_data(ticker):
                 error_message=str(e),
             )
             db.session.commit()
-            return jsonify(load_market_data(company, db.session))
+            return jsonify(sanitize_value(load_market_data(company, db.session)))
         return jsonify({"error": str(e)})
 
 @app.route("/all")
