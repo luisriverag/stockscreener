@@ -70,6 +70,114 @@ _downloader_stop_event = threading.Event()
 _downloader_process = None
 _downloader_process_lock = threading.Lock()
 
+API_CACHE_TTL_SECONDS = int(os.environ.get("STOCKSCREENER_API_CACHE_TTL_SECONDS", 60))
+API_RATE_LIMIT_PER_MINUTE = int(
+    os.environ.get("STOCKSCREENER_API_RATE_LIMIT_PER_MINUTE", 120)
+)
+API_KEYS = {
+    key.strip()
+    for key in os.environ.get("STOCKSCREENER_API_KEYS", "").split(",")
+    if key.strip()
+}
+_api_response_cache = {}
+_api_rate_limits = {}
+
+
+def is_api_request():
+    return request.path.startswith("/api/")
+
+
+def api_cache_key():
+    return (request.path, tuple(sorted(request.args.items())))
+
+
+def api_cache_get():
+    if request.method != "GET" or API_CACHE_TTL_SECONDS <= 0:
+        return None
+    key = api_cache_key()
+    cached = _api_response_cache.get(key)
+    if not cached:
+        return None
+    expires_at, status_code, headers, body = cached
+    if expires_at < time.time():
+        _api_response_cache.pop(key, None)
+        return None
+    response = make_response(body, status_code)
+    for header, value in headers.items():
+        response.headers[header] = value
+    response.headers["X-Cache"] = "HIT"
+    return response
+
+
+def api_cache_set(response):
+    if (
+        request.method == "GET"
+        and API_CACHE_TTL_SECONDS > 0
+        and response.status_code == 200
+        and response.mimetype == "application/json"
+        and response.headers.get("X-Cache") != "HIT"
+    ):
+        headers = {"Content-Type": response.headers.get("Content-Type", "application/json")}
+        _api_response_cache[api_cache_key()] = (
+            time.time() + API_CACHE_TTL_SECONDS,
+            response.status_code,
+            headers,
+            response.get_data(),
+        )
+        response.headers["Cache-Control"] = f"public, max-age={API_CACHE_TTL_SECONDS}"
+        response.headers["X-Cache"] = "MISS"
+    return response
+
+
+def check_api_auth():
+    if not API_KEYS:
+        return None
+    provided_key = request.headers.get("X-API-Key") or request.args.get("api_key")
+    if provided_key not in API_KEYS:
+        return jsonify({"error": "Unauthorized"}), 401
+    return None
+
+
+def check_api_rate_limit():
+    if API_RATE_LIMIT_PER_MINUTE <= 0:
+        return None
+    now = time.time()
+    window_start = now - 60
+    client_id = request.headers.get("X-Forwarded-For", request.remote_addr or "local")
+    timestamps = [
+        timestamp
+        for timestamp in _api_rate_limits.get(client_id, [])
+        if timestamp >= window_start
+    ]
+    if len(timestamps) >= API_RATE_LIMIT_PER_MINUTE:
+        response = jsonify({"error": "Rate limit exceeded"})
+        response.status_code = 429
+        response.headers["Retry-After"] = "60"
+        return response
+    timestamps.append(now)
+    _api_rate_limits[client_id] = timestamps
+    return None
+
+
+@app.before_request
+def apply_api_access_controls():
+    if not is_api_request():
+        return None
+    auth_response = check_api_auth()
+    if auth_response:
+        return auth_response
+    rate_limit_response = check_api_rate_limit()
+    if rate_limit_response:
+        return rate_limit_response
+    return api_cache_get()
+
+
+@app.after_request
+def cache_api_response(response):
+    if not is_api_request():
+        return response
+    return api_cache_set(response)
+
 
 def terminate_downloader_process(timeout=10):
     """Terminate any active downloader subprocess before the web app exits."""
@@ -236,6 +344,8 @@ def index():
     max_debt_to_market_cap_pct = request.args.get(
         "max_debt_to_market_cap_pct", type=float
     )
+    min_market_cap = request.args.get("min_market_cap", type=float)
+    max_market_cap = request.args.get("max_market_cap", type=float)
     search = request.args.get("search", "").strip()
     sort_by = request.args.get("sort_by", "ticker")
     order = request.args.get("order", "asc")
@@ -314,6 +424,12 @@ def index():
                         or debt_to_market_cap_pct > max_debt_to_market_cap_pct
                     ):
                         continue
+                if min_market_cap is not None:
+                    if company.market_cap is None or company.market_cap < min_market_cap:
+                        continue
+                if max_market_cap is not None:
+                    if company.market_cap is None or company.market_cap > max_market_cap:
+                        continue
 
                 companies.append(
                     {
@@ -381,6 +497,8 @@ def index():
         "max_debt_to_market_cap_pct": max_debt_to_market_cap_pct
         if max_debt_to_market_cap_pct is not None
         else "",
+        "min_market_cap": min_market_cap if min_market_cap is not None else "",
+        "max_market_cap": max_market_cap if max_market_cap is not None else "",
     }
     sortable_fields = [
         "ticker",
@@ -450,6 +568,8 @@ def index():
         f"Debt/Market cap ≤ {max_debt_to_market_cap_pct:g}%"
         if max_debt_to_market_cap_pct is not None
         else None,
+        f"Market cap ≥ ${min_market_cap / 1e9:g}B" if min_market_cap is not None else None,
+        f"Market cap ≤ ${max_market_cap / 1e9:g}B" if max_market_cap is not None else None,
     ]
     active_filters = [filter_label for filter_label in active_filters if filter_label]
 
@@ -464,6 +584,8 @@ def index():
         min_pe_spread_neg=min_pe_spread_neg,
         max_debt_to_equity=max_debt_to_equity,
         max_debt_to_market_cap_pct=max_debt_to_market_cap_pct,
+        min_market_cap=min_market_cap,
+        max_market_cap=max_market_cap,
         search=search,
         sort_by=sort_by,
         order=order,
@@ -724,6 +846,8 @@ def apply_company_api_filters(query):
     max_debt_to_market_cap_pct = request.args.get(
         "max_debt_to_market_cap_pct", type=float
     )
+    min_market_cap = request.args.get("min_market_cap", type=float)
+    max_market_cap = request.args.get("max_market_cap", type=float)
 
     if search:
         query = query.filter(
@@ -749,10 +873,19 @@ def apply_company_api_filters(query):
             Company.total_debt
             <= (Company.market_cap * max_debt_to_market_cap_pct / 100),
         )
+    if min_market_cap is not None:
+        query = query.filter(
+            Company.market_cap.isnot(None), Company.market_cap >= min_market_cap
+        )
+    if max_market_cap is not None:
+        query = query.filter(
+            Company.market_cap.isnot(None), Company.market_cap <= max_market_cap
+        )
 
     return query
 
 
+@app.route("/api/v1/companies")
 @app.route("/api/companies")
 def api_companies():
     page = max(request.args.get("page", 1, type=int) or 1, 1)
@@ -793,6 +926,7 @@ def api_companies():
     )
 
 
+@app.route("/api/v1/companies/<ticker>")
 @app.route("/api/companies/<ticker>")
 def api_company_detail(ticker):
     company = Company.query.filter_by(ticker=ticker.upper()).first()
@@ -802,6 +936,98 @@ def api_company_detail(ticker):
     return jsonify(company_to_api_dict(company, include_details=True))
 
 
+@app.route("/api/v1/sectors")
+@app.route("/api/sectors")
+def api_sectors():
+    rows = (
+        db.session.query(
+            Company.sector,
+            db.func.count(Company.id),
+            db.func.avg(Company.pe_ratio),
+            db.func.sum(Company.market_cap),
+        )
+        .filter(Company.sector.isnot(None), Company.sector != "")
+        .group_by(Company.sector)
+        .order_by(Company.sector.asc())
+        .all()
+    )
+    return jsonify({
+        "sectors": [
+            {"sector": sector, "company_count": count, "avg_pe_ratio": avg_pe, "total_market_cap": total_market_cap}
+            for sector, count, avg_pe, total_market_cap in rows
+        ]
+    })
+
+
+@app.route("/api/v1/industries")
+@app.route("/api/industries")
+def api_industries():
+    sector = request.args.get("sector", "").strip()
+    query = db.session.query(Company.industry, Company.sector, db.func.count(Company.id)).filter(
+        Company.industry.isnot(None), Company.industry != ""
+    )
+    if sector:
+        query = query.filter(Company.sector.ilike(f"%{sector}%"))
+    rows = query.group_by(Company.industry, Company.sector).order_by(Company.industry.asc()).all()
+    return jsonify({
+        "industries": [
+            {"industry": industry, "sector": row_sector, "company_count": count}
+            for industry, row_sector, count in rows
+        ]
+    })
+
+
+@app.route("/api/v1/companies/<ticker>/chart")
+@app.route("/api/companies/<ticker>/chart")
+def api_company_chart(ticker):
+    company = Company.query.filter_by(ticker=ticker.upper()).first()
+    if not company:
+        return jsonify({"error": "Company not found", "ticker": ticker}), 404
+    reports = FinancialReport.query.filter_by(company_id=company.id).order_by(
+        FinancialReport.year, FinancialReport.quarter
+    ).all()
+    prices = StockPrice.query.filter_by(company_id=company.id).order_by(StockPrice.date).all()
+    return jsonify({
+        "ticker": company.ticker,
+        "reports": [
+            {
+                "period": f"{r.year} Q{r.quarter}",
+                "date": quarter_end_date(r.year, r.quarter),
+                "revenue": r.revenue,
+                "opex": r.opex,
+                "capex": r.capex,
+                "net_income": r.net_income,
+            }
+            for r in reports
+        ],
+        "prices": [
+            {"date": p.date.isoformat(), "close": p.close, "volume": p.volume}
+            for p in prices
+        ],
+    })
+
+
+@app.route("/api/v1/market-data/<ticker>/refresh")
+@app.route("/api/market-data/<ticker>/refresh")
+def api_market_data_refresh(ticker):
+    from models import MarketDataRefresh
+
+    company = Company.query.filter_by(ticker=ticker.upper()).first()
+    if not company:
+        return jsonify({"error": "Company not found", "ticker": ticker}), 404
+    refresh = MarketDataRefresh.query.filter_by(company_id=company.id).first()
+    return jsonify({
+        "ticker": company.ticker,
+        "metadata": {
+            "fetch_status": refresh.fetch_status if refresh else "missing",
+            "source": refresh.source if refresh else None,
+            "last_refreshed_at": refresh.last_refreshed_at.isoformat() if refresh and refresh.last_refreshed_at else None,
+            "error_message": refresh.error_message if refresh else None,
+        },
+    })
+
+
+@app.route("/api/v1/news/<ticker>")
 @app.route("/api/news/<ticker>")
 def news(ticker):
     import yfinance as yf
@@ -832,6 +1058,7 @@ def news(ticker):
         return jsonify({"news": [], "error": str(e)})
 
 
+@app.route("/api/v1/risks/<ticker>")
 @app.route("/api/risks/<ticker>")
 def risks(ticker):
     import yfinance as yf
@@ -1035,6 +1262,7 @@ def risks(ticker):
 
 
 
+@app.route("/api/v1/market-data/<ticker>")
 @app.route("/api/market-data/<ticker>")
 def market_data(ticker):
     company = Company.query.filter_by(ticker=ticker.upper()).first()

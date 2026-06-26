@@ -14,11 +14,11 @@ API and MCP work are now top-priority integration tracks because external tools,
   - `GET /api/companies` with pagination, search, filters, and safe sorting
   - `GET /api/companies/<ticker>` with computed metrics, latest report, and latest price
   - Human-readable documentation in `docs/API.md`
-- [ ] Add route-level tests with Flask's test client once app dependencies are available in CI
-- [ ] Publish an OpenAPI specification for generated clients and interactive docs
-- [ ] Add API versioning strategy, for example `/api/v1/...`, before adding write endpoints
-- [ ] Add optional API authentication, rate limiting, and response caching for third-party usage
-- [ ] Expand endpoints for sectors, industries, chart payloads, and market-data refresh metadata
+- [x] Add route-level tests with Flask's test client once app dependencies are available in CI
+- [x] Publish an OpenAPI specification for generated clients and interactive docs
+- [x] Add API versioning strategy, for example `/api/v1/...`, before adding write endpoints
+- [x] Add optional API authentication, rate limiting, and response caching for third-party usage
+- [x] Expand endpoints for sectors, industries, chart payloads, and market-data refresh metadata
 
 ### MCP Server
 
@@ -28,10 +28,10 @@ API and MCP work are now top-priority integration tracks because external tools,
   - Protocol negotiation, batching, notifications, ping, and structured tool content
   - Human-readable documentation in `docs/MCP.md`
 - [ ] Validate against multiple MCP clients and record compatibility notes
-- [ ] Add resource templates for common company-list query patterns
-- [ ] Add packaging/config examples for local MCP client setup
+- [x] Add resource templates for common company-list query patterns
+- [x] Add packaging/config examples for local MCP client setup
 - [ ] Add integration tests for data-returning MCP tools once app dependencies are available in CI
-- [ ] Keep MCP tool schemas aligned with REST API query parameters and response shapes
+- [x] Keep MCP tool schemas aligned with REST API query parameters and response shapes
 
 ---
 
@@ -94,8 +94,8 @@ API and MCP work are now top-priority integration tracks because external tools,
 
 - [x] Global search (ticker/name)
 - [x] Sort by any column
-- [ ] Industry/sector filtering
-- [ ] Market cap range filter
+- [x] Industry/sector filtering
+- [x] Market cap range filter
 
 ---
 
@@ -216,7 +216,7 @@ Have an idea? Submit a feature request!
 - [ ] **Data-source fallback**: Add alternate providers for missing Yahoo Finance values and mark source provenance per field.
 - [ ] **Margin charts**: Add gross, operating, and net-margin trends beside revenue and expense charts.
 - [ ] **Background job dashboard**: Show whether the downloader is idle, running, failed, or disabled.
-- [ ] **Automated tests**: Add unit tests for calculations, downloader parsing, route responses, and chart payload shapes.
+- [x] **Automated tests**: Add unit tests for calculations, downloader parsing, route responses, and chart payload shapes.
 
 ---
 

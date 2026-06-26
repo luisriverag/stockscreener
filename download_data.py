@@ -1015,14 +1015,51 @@ SAMPLE_TICKERS = [
 ]
 
 
+def normalize_ticker(ticker):
+    return ticker.strip().upper().replace(".", "-")
+
+
+def get_sp500_tickers():
+    try:
+        tables = pd.read_html(
+            "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        )
+        if not tables:
+            return []
+        symbols = tables[0]["Symbol"].dropna().astype(str)
+        return [normalize_ticker(symbol) for symbol in symbols]
+    except Exception as e:
+        print(f"Unable to refresh S&P 500 ticker list: {e}")
+        return []
+
+
 def get_all_tickers():
-    return list(set(SAMPLE_TICKERS))
+    tickers = {normalize_ticker(ticker) for ticker in SAMPLE_TICKERS}
+    tickers.update(get_sp500_tickers())
+    return sorted(tickers)
+
+
+def has_provider_data(info):
+    return bool(
+        info
+        and (
+            info.get("shortName")
+            or info.get("longName")
+            or info.get("regularMarketPrice") is not None
+            or info.get("marketCap") is not None
+        )
+    )
 
 
 def download_company_data(ticker, session):
+    ticker = normalize_ticker(ticker)
     try:
         ticker_obj = yf.Ticker(ticker)
         info = ticker_obj.info
+
+        if not has_provider_data(info):
+            print(f"Skipping {ticker}: no provider data found")
+            return False
 
         company = session.query(Company).filter_by(ticker=ticker).first()
         if not company:
@@ -1083,35 +1120,28 @@ def download_company_data(ticker, session):
                     year = date.year
                     quarter = (date.month - 1) // 3 + 1
 
-                    # Try to get CAPEX from cashflow
+                    # Try to get CAPEX from quarterly cashflow. Yahoo Finance's
+                    # annual cashflow can share Q4's calendar year, so using it here
+                    # would double count Q1-Q3 capex inside the Q4 report.
                     capex = None
                     try:
-                        cashflow = ticker_obj.cashflow
+                        quarterly_cashflow = getattr(
+                            ticker_obj, "quarterly_cashflow", None
+                        )
                         if (
-                            cashflow is not None
-                            and not cashflow.empty
-                            and "Capital Expenditure" in cashflow.index
+                            quarterly_cashflow is not None
+                            and not quarterly_cashflow.empty
+                            and "Capital Expenditure" in quarterly_cashflow.index
                         ):
-                            # Try to match by quarter first
-                            for cf_col in cashflow.columns:
+                            for cf_col in quarterly_cashflow.columns:
                                 cf_date = cf_col
                                 cf_quarter = (cf_date.month - 1) // 3 + 1
                                 if cf_date.year == year and cf_quarter == quarter:
-                                    capex = cashflow.loc["Capital Expenditure", cf_col]
+                                    capex = quarterly_cashflow.loc[
+                                        "Capital Expenditure", cf_col
+                                    ]
                                     if pd.notna(capex):
                                         break
-                            # Fallback: try same year (annual cashflow)
-                            if capex is None or pd.isna(capex):
-                                for cf_col in cashflow.columns:
-                                    cf_date = cf_col
-                                    if cf_date.year == year:
-                                        capex = cashflow.loc[
-                                            "Capital Expenditure", cf_col
-                                        ]
-                                        if pd.notna(capex):
-                                            # Annual CAPEX - estimate quarterly as 1/4
-                                            capex = capex / 4
-                                            break
                     except:
                         pass
 

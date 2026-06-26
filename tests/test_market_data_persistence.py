@@ -74,3 +74,11 @@ def test_background_downloader_has_shutdown_path():
     assert "atexit.register(shutdown_background_downloader)" in app
     assert "start_new_session" in app
     assert "shutdown_background_downloader()" in app
+
+
+def test_ticker_page_loads_bootstrap_bundle_for_market_data_tab():
+    template = read("templates/ticker.html")
+
+    assert "bootstrap.bundle.min.js" in template
+    assert 'id="market-data-tab"' in template
+    assert "loadMarketData('{{ summary.ticker }}')" in template

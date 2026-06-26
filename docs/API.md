@@ -14,6 +14,24 @@ python app.py
 - List pagination is 1-based. `per_page` is capped at 100.
 - Endpoints that call Yahoo Finance can include an `error` field if provider data is unavailable.
 
+## Access Controls
+
+API authentication is optional and disabled by default. Set `STOCKSCREENER_API_KEYS` to a comma-separated list of accepted keys to require clients to send `X-API-Key` or `api_key`. API GET responses are cached in-process for `STOCKSCREENER_API_CACHE_TTL_SECONDS` seconds, and per-client rate limiting is controlled by `STOCKSCREENER_API_RATE_LIMIT_PER_MINUTE`.
+
+## Versioning and OpenAPI
+
+Versioned `/api/v1/...` routes are available alongside the original `/api/...` routes for backward compatibility. An OpenAPI 3.0 specification is published at [`docs/openapi.json`](openapi.json).
+
+## Discovery
+
+`GET /api/v1/sectors` returns sector summaries with company counts, average P/E, and total market cap.
+
+`GET /api/v1/industries` returns industry summaries and accepts an optional `sector` query filter.
+
+`GET /api/v1/companies/<ticker>/chart` returns financial-report and stock-price chart payloads for a ticker.
+
+`GET /api/v1/market-data/<ticker>/refresh` returns market-data refresh status, source, timestamp, and last error metadata.
+
 ## Company List
 
 `GET /api/companies`
@@ -31,6 +49,8 @@ Returns paginated company fundamentals and computed screening metrics.
 | `industry` | string | empty | Case-insensitive industry filter. |
 | `max_debt_to_equity` | number | empty | Exclude companies with missing debt/equity data or debt/equity above this value. |
 | `max_debt_to_market_cap_pct` | number | empty | Exclude companies with missing debt or market-cap data, or total debt above this percentage of market cap. |
+| `min_market_cap` | float | empty | Minimum market capitalization in dollars. |
+| `max_market_cap` | float | empty | Maximum market capitalization in dollars. |
 | `sort` | string | `ticker` | Company model field to sort by. Unknown fields fall back to `ticker`; debt fields are supported. |
 | `order` | string | `asc` | Use `desc` for descending order; all other values sort ascending. |
 
@@ -141,7 +161,7 @@ Returns normalized risk items plus raw Yahoo Finance risk fields when available.
 
 `GET /api/market-data/<ticker>`
 
-Returns ownership, major-holder, insider-transaction, option-chain, earnings-calendar, and SEC filing-link data. The endpoint reads cached database data first. If no successful cache exists, it fetches live data, persists it for known companies, and returns the payload.
+Returns ownership, major-holder, insider-transaction, option-chain, earnings-calendar, and SEC filing-link data. The endpoint reads cached database data first. If no successful cache exists, it fetches live data, persists it for known companies, and returns the payload. No API token is required; live enrichment currently comes from Yahoo Finance via `yfinance` plus generated SEC EDGAR links.
 
 
 ## MCP Server
