@@ -59,4 +59,8 @@ def test_dashboard_ui_exposes_quick_presets_and_results_context():
     assert "Balance sheet filters" in template
     assert "Max Debt/Equity" in template
     assert "Max Debt/Market Cap (%)" in template
+    assert "min_market_cap" in template
+    assert "max_market_cap" in template
+    assert "Min Market Cap ($)" in template
+    assert "Max Market Cap ($)" in template
     assert "Debt/Equity" in template

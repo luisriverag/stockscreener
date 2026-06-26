@@ -140,6 +140,8 @@ def company_list(arguments):
                 "max_debt_to_market_cap_pct": arguments.get(
                     "max_debt_to_market_cap_pct"
                 ),
+                "min_market_cap": arguments.get("min_market_cap"),
+                "max_market_cap": arguments.get("max_market_cap"),
             }.items()
             if value
         }
@@ -192,6 +194,8 @@ def list_tools():
                     "industry": {"type": "string"},
                     "max_debt_to_equity": {"type": "number", "minimum": 0},
                     "max_debt_to_market_cap_pct": {"type": "number", "minimum": 0},
+                    "min_market_cap": {"type": "number", "minimum": 0},
+                    "max_market_cap": {"type": "number", "minimum": 0},
                     "sort": {
                         "type": "string",
                         "enum": [
@@ -237,6 +241,23 @@ def list_resources():
             "uri": "stockscreener://companies",
             "name": "Stock Screener companies",
             "description": "JSON list of companies. Supports query parameters such as ?search=software&per_page=10.",
+            "mimeType": "application/json",
+        },
+    ]
+
+
+def list_resource_templates():
+    return [
+        {
+            "uriTemplate": "stockscreener://companies{?search,sector,industry,page,per_page,sort,order,min_market_cap,max_market_cap}",
+            "name": "Filtered company list",
+            "description": "List companies with common REST API query parameters.",
+            "mimeType": "application/json",
+        },
+        {
+            "uriTemplate": "stockscreener://companies{?sector,industry,max_debt_to_equity,max_debt_to_market_cap_pct}",
+            "name": "Screened company list",
+            "description": "List companies using sector, industry, and debt screening filters.",
             "mimeType": "application/json",
         },
     ]
@@ -301,7 +322,7 @@ def handle_request(message):
     if method == "resources/read":
         return read_resource(params.get("uri", ""))
     if method == "resources/templates/list":
-        return {"resourceTemplates": []}
+        return {"resourceTemplates": list_resource_templates()}
     if method == "prompts/list":
         return {"prompts": []}
 

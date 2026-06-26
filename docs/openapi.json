@@ -1,0 +1,15 @@
+{
+  "openapi": "3.0.3",
+  "info": {"title": "Stock Screener API", "version": "1.0.0"},
+  "paths": {
+    "/api/v1/companies": {"get": {"summary": "List companies", "parameters": [{"name": "page", "in": "query", "schema": {"type": "integer"}}, {"name": "per_page", "in": "query", "schema": {"type": "integer"}}, {"name": "search", "in": "query", "schema": {"type": "string"}}, {"name": "sector", "in": "query", "schema": {"type": "string"}}, {"name": "industry", "in": "query", "schema": {"type": "string"}}, {"name": "min_market_cap", "in": "query", "schema": {"type": "number"}}, {"name": "max_market_cap", "in": "query", "schema": {"type": "number"}}], "responses": {"200": {"description": "Company page"}}}},
+    "/api/v1/companies/{ticker}": {"get": {"summary": "Get company details", "parameters": [{"name": "ticker", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Company details"}, "404": {"description": "Company not found"}}}},
+    "/api/v1/companies/{ticker}/chart": {"get": {"summary": "Get company chart payload", "parameters": [{"name": "ticker", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Chart data"}}}},
+    "/api/v1/sectors": {"get": {"summary": "List sector summaries", "responses": {"200": {"description": "Sector summaries"}}}},
+    "/api/v1/industries": {"get": {"summary": "List industries", "parameters": [{"name": "sector", "in": "query", "schema": {"type": "string"}}], "responses": {"200": {"description": "Industry summaries"}}}},
+    "/api/v1/market-data/{ticker}": {"get": {"summary": "Get market data", "parameters": [{"name": "ticker", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Market data"}}}},
+    "/api/v1/market-data/{ticker}/refresh": {"get": {"summary": "Get market-data refresh metadata", "parameters": [{"name": "ticker", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Refresh metadata"}}}},
+    "/api/v1/news/{ticker}": {"get": {"summary": "Get company news", "parameters": [{"name": "ticker", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "News"}}}},
+    "/api/v1/risks/{ticker}": {"get": {"summary": "Get risk analysis", "parameters": [{"name": "ticker", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Risk analysis"}}}}
+  }
+}
